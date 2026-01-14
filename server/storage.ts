@@ -1,37 +1,80 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { games, type Game, type InsertGame } from "@shared/schema";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  // Queue operations
+  addToQueue(userId: string): void;
+  removeFromQueue(userId: string): void;
+  findMatch(): { p1: string; p2: string } | null;
+  
+  // Game operations
+  createGame(p1: string, p2: string): Promise<Game>;
+  getGame(gameId: number): Promise<Game | undefined>;
+  updateGame(gameId: number, board: number[][], turn: string, status: string, winnerId?: string | null): Promise<Game>;
+  
+  // Helpers
+  getGameByPlayer(userId: string): Promise<Game | undefined>;
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<string, User>;
+  private queue: Set<string> = new Set();
+  private activeGames: Map<number, Game> = new Map();
+  private gameIdCounter = 1;
 
-  constructor() {
-    this.users = new Map();
+  addToQueue(userId: string): void {
+    this.queue.add(userId);
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  removeFromQueue(userId: string): void {
+    this.queue.delete(userId);
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
+  findMatch(): { p1: string; p2: string } | null {
+    if (this.queue.size >= 2) {
+      const it = this.queue.values();
+      const p1 = it.next().value;
+      const p2 = it.next().value;
+      this.queue.delete(p1);
+      this.queue.delete(p2);
+      return { p1, p2 };
+    }
+    return null;
+  }
+
+  async createGame(p1: string, p2: string): Promise<Game> {
+    const id = this.gameIdCounter++;
+    // 6 rows, 7 cols
+    const board = Array(6).fill(null).map(() => Array(7).fill(0));
+    const game: Game = {
+      id,
+      player1Id: p1,
+      player2Id: p2,
+      board,
+      turn: 'player1', // p1 starts
+      status: 'playing',
+      winnerId: null
+    };
+    this.activeGames.set(id, game);
+    return game;
+  }
+
+  async getGame(gameId: number): Promise<Game | undefined> {
+    return this.activeGames.get(gameId);
+  }
+
+  async updateGame(gameId: number, board: number[][], turn: string, status: string, winnerId: string | null = null): Promise<Game> {
+    const game = this.activeGames.get(gameId);
+    if (!game) throw new Error("Game not found");
+    
+    const updatedGame = { ...game, board, turn, status, winnerId };
+    this.activeGames.set(gameId, updatedGame);
+    return updatedGame;
+  }
+
+  async getGameByPlayer(userId: string): Promise<Game | undefined> {
+    // This is O(N) but fine for MVP. In prod use a lookup map.
+    return Array.from(this.activeGames.values()).find(g => 
+      (g.player1Id === userId || g.player2Id === userId) && g.status === 'playing'
     );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
   }
 }
 
