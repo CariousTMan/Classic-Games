@@ -49,19 +49,47 @@ function checkWin(board: number[][], player: number): boolean {
   return false;
 }
 
-export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
-  // Create WebSocket Server attached to the HTTP server
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+// Simple AI logic
+function getCpuMove(board: number[][], difficulty: string): number {
+  const cols = 7;
+  const validCols = [];
+  for (let c = 0; c < cols; c++) {
+    if (board[0][c] === 0) validCols.push(c);
+  }
 
-  // Map to store connected clients: userId -> WebSocket
+  if (difficulty === 'easy') {
+    return validCols[Math.floor(Math.random() * validCols.length)];
+  }
+
+  // Medium: Check if CPU can win in one move, or if it needs to block player
+  for (const player of [2, 1]) { // 2 is CPU, 1 is Player
+    for (const c of validCols) {
+      let r = 5;
+      while (r >= 0 && board[r][c] !== 0) r--;
+      if (r >= 0) {
+        const tempBoard = board.map(row => [...row]);
+        tempBoard[r][c] = player;
+        if (checkWin(tempBoard, player)) return c;
+      }
+    }
+    if (difficulty === 'medium' && player === 2) break; // Medium only blocks if Hard
+  }
+
+  // Hard: (Simplified) Try to win, block, or pick center
+  if (difficulty === 'hard') {
+    if (validCols.includes(3)) return 3; // Center is strategic
+  }
+
+  return validCols[Math.floor(Math.random() * validCols.length)];
+}
+
+export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   const clients = new Map<string, WebSocket>();
 
   wss.on('connection', (ws) => {
-    // Assign a temporary ID for this session
     const userId = randomUUID();
     clients.set(userId, ws);
-
-    console.log(`User connected: ${userId}`);
 
     ws.on('message', async (data) => {
       try {
@@ -69,110 +97,93 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
         if (message.type === WS_MESSAGES.JOIN_QUEUE) {
           storage.addToQueue(userId);
-          
-          // Check for match
           const match = storage.findMatch();
           if (match) {
             const game = await storage.createGame(match.p1, match.p2);
-            
-            // Notify Player 1
-            const p1Ws = clients.get(match.p1);
-            if (p1Ws && p1Ws.readyState === WebSocket.OPEN) {
-              p1Ws.send(JSON.stringify({
-                type: WS_MESSAGES.MATCH_FOUND,
-                payload: { gameId: game.id, opponentId: match.p2, yourColor: 1 }
-              }));
-            }
-
-            // Notify Player 2
-            const p2Ws = clients.get(match.p2);
-            if (p2Ws && p2Ws.readyState === WebSocket.OPEN) {
-              p2Ws.send(JSON.stringify({
-                type: WS_MESSAGES.MATCH_FOUND,
-                payload: { gameId: game.id, opponentId: match.p1, yourColor: 2 }
-              }));
-            }
+            [match.p1, match.p2].forEach((pId, idx) => {
+              const pWs = clients.get(pId);
+              if (pWs?.readyState === WebSocket.OPEN) {
+                pWs.send(JSON.stringify({
+                  type: WS_MESSAGES.MATCH_FOUND,
+                  payload: { gameId: game.id, opponentId: idx === 0 ? match.p2 : match.p1, yourColor: idx + 1 }
+                }));
+              }
+            });
           }
         } 
+        else if (message.type === WS_MESSAGES.START_CPU_GAME) {
+          const game = await storage.createGame(userId, 'cpu', true, message.payload.difficulty);
+          ws.send(JSON.stringify({
+            type: WS_MESSAGES.MATCH_FOUND,
+            payload: { gameId: game.id, opponentId: 'cpu', yourColor: 1 }
+          }));
+        }
         else if (message.type === WS_MESSAGES.MAKE_MOVE) {
           const { gameId, column } = message.payload;
           const game = await storage.getGame(gameId);
-          
-          if (!game || game.status !== 'playing') {
-            ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Invalid game" } }));
-            return;
-          }
+          if (!game || game.status !== 'playing') return;
 
-          // Validate Turn
           const isPlayer1 = game.player1Id === userId;
           const isPlayer2 = game.player2Id === userId;
-          
-          if (!isPlayer1 && !isPlayer2) return; // Not in this game
+          if (!isPlayer1 && !isPlayer2) return;
+          if ((isPlayer1 && game.turn !== 'player1') || (isPlayer2 && game.turn !== 'player2')) return;
 
-          if ((isPlayer1 && game.turn !== 'player1') || (isPlayer2 && game.turn !== 'player2')) {
-            ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Not your turn" } }));
-            return;
-          }
+          // Apply move
+          let r = 5;
+          while (r >= 0 && game.board[r][column] !== 0) r--;
+          if (r < 0) return;
 
-          // Validate Move
-          if (column < 0 || column >= 7) return;
-
-          // Find first empty row in column (from bottom up)
-          let row = 5;
-          while (row >= 0 && game.board[row][column] !== 0) {
-            row--;
-          }
-
-          if (row < 0) {
-            ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Column full" } }));
-            return;
-          }
-
-          // Apply Move
           const playerNum = isPlayer1 ? 1 : 2;
-          const newBoard = game.board.map(r => [...r]);
-          newBoard[row][column] = playerNum;
+          const newBoard = game.board.map(row => [...row]);
+          newBoard[r][column] = playerNum;
 
-          // Check Win
           let status = 'playing';
           let winnerId = null;
-          let turn = game.turn === 'player1' ? 'player2' : 'player1';
-
           if (checkWin(newBoard, playerNum)) {
             status = 'finished';
             winnerId = userId;
-          } else {
-            // Check Draw (Board full)
-            const isFull = newBoard[0].every(cell => cell !== 0);
-            if (isFull) {
-              status = 'finished';
-              winnerId = 'draw';
-            }
+          } else if (newBoard[0].every(cell => cell !== 0)) {
+            status = 'finished';
+            winnerId = 'draw';
           }
 
-          // Update Game
+          let turn = game.turn === 'player1' ? 'player2' : 'player1';
           await storage.updateGame(gameId, newBoard, turn, status, winnerId);
 
-          // Broadcast Update
-          const p1Ws = clients.get(game.player1Id);
-          const p2Ws = clients.get(game.player2Id);
-          
-          const updateMsg = JSON.stringify({
-            type: WS_MESSAGES.GAME_UPDATE,
-            payload: { board: newBoard, turn: turn === 'player1' ? 1 : 2 }
-          });
+          const notify = (msg: string) => {
+            const p1 = clients.get(game.player1Id);
+            const p2 = clients.get(game.player2Id);
+            if (p1?.readyState === WebSocket.OPEN) p1.send(msg);
+            if (p2?.readyState === WebSocket.OPEN) p2.send(msg);
+          };
 
-          if (p1Ws?.readyState === WebSocket.OPEN) p1Ws.send(updateMsg);
-          if (p2Ws?.readyState === WebSocket.OPEN) p2Ws.send(updateMsg);
-
-          // If Game Over, send Game Over message
+          notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: turn === 'player1' ? 1 : 2 } }));
           if (status === 'finished') {
-             const gameOverMsg = JSON.stringify({
-              type: WS_MESSAGES.GAME_OVER,
-              payload: { winner: winnerId === 'draw' ? 'draw' : playerNum, board: newBoard }
-            });
-            if (p1Ws?.readyState === WebSocket.OPEN) p1Ws.send(gameOverMsg);
-            if (p2Ws?.readyState === WebSocket.OPEN) p2Ws.send(gameOverMsg);
+            notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winnerId === 'draw' ? 'draw' : playerNum, board: newBoard } }));
+          } else if (game.isCpu && turn === 'player2') {
+            // CPU Turn
+            setTimeout(async () => {
+              const cpuCol = getCpuMove(newBoard, game.difficulty || 'easy');
+              let cr = 5;
+              while (cr >= 0 && newBoard[cr][cpuCol] !== 0) cr--;
+              
+              newBoard[cr][cpuCol] = 2;
+              let cStatus = 'playing';
+              let cWinnerId = null;
+              if (checkWin(newBoard, 2)) {
+                cStatus = 'finished';
+                cWinnerId = 'cpu';
+              } else if (newBoard[0].every(cell => cell !== 0)) {
+                cStatus = 'finished';
+                cWinnerId = 'draw';
+              }
+
+              await storage.updateGame(gameId, newBoard, 'player1', cStatus, cWinnerId);
+              notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: 1 } }));
+              if (cStatus === 'finished') {
+                notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: cWinnerId === 'draw' ? 'draw' : 2, board: newBoard } }));
+              }
+            }, 500);
           }
         }
       } catch (err) {
@@ -183,17 +194,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     ws.on('close', async () => {
       clients.delete(userId);
       storage.removeFromQueue(userId);
-      
-      // Handle active game disconnection
       const game = await storage.getGameByPlayer(userId);
-      if (game) {
-        // Notify opponent
+      if (game && !game.isCpu) {
         const opponentId = game.player1Id === userId ? game.player2Id : game.player1Id;
         const opponentWs = clients.get(opponentId);
         if (opponentWs?.readyState === WebSocket.OPEN) {
           opponentWs.send(JSON.stringify({ type: WS_MESSAGES.OPPONENT_DISCONNECTED }));
         }
-        // Mark game as aborted/finished?
         storage.updateGame(game.id, game.board, game.turn, 'aborted');
       }
     });

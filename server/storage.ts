@@ -7,7 +7,7 @@ export interface IStorage {
   findMatch(): { p1: string; p2: string } | null;
   
   // Game operations
-  createGame(p1: string, p2: string): Promise<Game>;
+  createGame(p1: string, p2: string, isCpu?: boolean, difficulty?: string): Promise<Game>;
   getGame(gameId: number): Promise<Game | undefined>;
   updateGame(gameId: number, board: number[][], turn: string, status: string, winnerId?: string | null): Promise<Game>;
   
@@ -40,7 +40,7 @@ export class MemStorage implements IStorage {
     return null;
   }
 
-  async createGame(p1: string, p2: string): Promise<Game> {
+  async createGame(p1: string, p2: string, isCpu: boolean = false, difficulty: string = 'easy'): Promise<Game> {
     const id = this.gameIdCounter++;
     // 6 rows, 7 cols
     const board = Array(6).fill(null).map(() => Array(7).fill(0));
@@ -51,7 +51,9 @@ export class MemStorage implements IStorage {
       board,
       turn: 'player1', // p1 starts
       status: 'playing',
-      winnerId: null
+      winnerId: null,
+      isCpu,
+      difficulty
     };
     this.activeGames.set(id, game);
     return game;
@@ -71,7 +73,6 @@ export class MemStorage implements IStorage {
   }
 
   async getGameByPlayer(userId: string): Promise<Game | undefined> {
-    // This is O(N) but fine for MVP. In prod use a lookup map.
     return Array.from(this.activeGames.values()).find(g => 
       (g.player1Id === userId || g.player2Id === userId) && g.status === 'playing'
     );
