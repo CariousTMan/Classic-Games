@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useGameSocket } from "@/hooks/use-game-socket";
 import { Board } from "@/components/Board";
 import { PlayerCard } from "@/components/PlayerCard";
@@ -7,11 +7,27 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Trophy, Frown, Gamepad2, Play, SearchX } from "lucide-react";
 import confetti from "canvas-confetti";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 
 export default function Game() {
-  const { connected, gameState, joinQueue, leaveQueue, makeMove, resetGame } = useGameSocket();
+  const { connected, gameState, joinQueue, startCpuGame, leaveQueue, makeMove, resetGame } = useGameSocket();
   const { status, board, turn, myColor, winner, opponentConnected } = gameState;
+  const searchParams = new URLSearchParams(useSearch());
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (!connected || initialized.current) return;
+
+    const mode = searchParams.get('mode');
+    const difficulty = searchParams.get('difficulty') as 'easy' | 'medium' | 'hard' | null;
+
+    if (mode === 'cpu' && difficulty) {
+      startCpuGame(difficulty);
+    } else {
+      joinQueue();
+    }
+    initialized.current = true;
+  }, [connected, startCpuGame, joinQueue, searchParams]);
 
   // Trigger confetti on win
   useEffect(() => {
@@ -42,7 +58,6 @@ export default function Game() {
     }
   }, [status, winner, myColor]);
 
-  // Determine message for game over dialog
   const getGameOverMessage = () => {
     if (!opponentConnected) return { title: "Opponent Left", desc: "The other player disconnected.", icon: <SearchX className="w-12 h-12 text-orange-500" /> };
     if (winner === 'draw') return { title: "It's a Draw!", desc: "The board is full. Good game!", icon: <Gamepad2 className="w-12 h-12 text-blue-500" /> };
@@ -68,9 +83,9 @@ export default function Game() {
       </header>
 
       {/* Main Game Area */}
-      <main className="w-full max-w-4xl flex flex-col lg:flex-row gap-8 items-center lg:items-start">
+      <main className="w-full max-w-4xl flex flex-col lg:flex-row gap-8 items-center lg:items-start relative">
         
-        {/* Game Info Panel - Left (Desktop) / Top (Mobile) */}
+        {/* Game Info Panel */}
         <div className="w-full lg:w-64 flex flex-col gap-4 order-2 lg:order-1">
           {status === 'playing' || status === 'game_over' ? (
             <div className="arcade-card p-4 flex flex-col gap-4">
@@ -83,7 +98,7 @@ export default function Game() {
               />
               <div className="h-px bg-border w-full" />
               <PlayerCard 
-                name="Opponent" 
+                name={searchParams.get('mode') === 'cpu' ? "CPU" : "Opponent"} 
                 color={myColor === 1 ? 'yellow' : 'red'} 
                 active={turn !== myColor && status === 'playing'} 
               />
@@ -94,26 +109,7 @@ export default function Game() {
                 <Gamepad2 className="w-8 h-8" />
               </div>
               <h2 className="font-display font-bold text-xl">Ready to Play?</h2>
-              <p className="text-sm text-muted-foreground">Join the queue to find a random opponent immediately.</p>
-              
-              {status === 'idle' ? (
-                <Button 
-                  onClick={joinQueue} 
-                  disabled={!connected}
-                  className="w-full arcade-btn bg-primary hover:bg-primary/90 text-primary-foreground py-6 text-lg"
-                >
-                  <Play className="w-5 h-5 mr-2" />
-                  Play Now
-                </Button>
-              ) : (
-                <Button 
-                  onClick={leaveQueue}
-                  variant="destructive"
-                  className="w-full arcade-btn py-6"
-                >
-                  Cancel Search
-                </Button>
-              )}
+              <p className="text-sm text-muted-foreground">Join the queue or start a CPU game to play.</p>
             </div>
           )}
 
@@ -128,8 +124,8 @@ export default function Game() {
           </div>
         </div>
 
-        {/* Board Area - Center */}
-        <div className="flex-1 w-full flex flex-col items-center justify-center order-1 lg:order-2">
+        {/* Board Area */}
+        <div className="flex-1 w-full flex flex-col items-center justify-center order-1 lg:order-2 relative min-h-[400px]">
           {status === 'searching' && (
              <div className="absolute inset-0 z-10 bg-background/50 backdrop-blur-sm flex items-center justify-center rounded-3xl">
                <div className="text-center space-y-4 animate-bounce">
@@ -139,7 +135,7 @@ export default function Game() {
              </div>
           )}
           
-          <div className={`transition-all duration-500 ${status === 'idle' ? 'opacity-50 blur-[2px] scale-95 pointer-events-none' : 'opacity-100 scale-100'}`}>
+          <div className={`transition-all duration-500 w-full flex justify-center ${status === 'idle' ? 'opacity-50 blur-[2px] scale-95 pointer-events-none' : 'opacity-100 scale-100'}`}>
              <Board 
                board={board} 
                onColumnClick={makeMove}
@@ -148,14 +144,6 @@ export default function Game() {
                myColor={myColor}
              />
           </div>
-          
-          {status === 'idle' && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="bg-background/80 backdrop-blur-md px-6 py-3 rounded-full font-bold shadow-lg border text-muted-foreground">
-                Waiting to start...
-              </span>
-            </div>
-          )}
         </div>
       </main>
 
@@ -172,10 +160,17 @@ export default function Game() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex flex-col sm:flex-row gap-3 mt-6 w-full">
-            <Button variant="outline" onClick={resetGame} className="w-full rounded-xl py-6">
-              Home
-            </Button>
-            <Button onClick={joinQueue} className="w-full arcade-btn bg-primary hover:bg-primary/90 text-primary-foreground py-6 text-lg">
+            <Link href="/" className="w-full">
+              <Button variant="outline" className="w-full rounded-xl py-6">
+                Home
+              </Button>
+            </Link>
+            <Button onClick={() => {
+              const mode = searchParams.get('mode');
+              const diff = searchParams.get('difficulty') as any;
+              if (mode === 'cpu') startCpuGame(diff);
+              else joinQueue();
+            }} className="w-full arcade-btn bg-primary hover:bg-primary/90 text-primary-foreground py-6 text-lg">
               Play Again
             </Button>
           </DialogFooter>

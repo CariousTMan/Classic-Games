@@ -44,7 +44,6 @@ export function useGameSocket() {
     socket.onclose = () => {
       setConnected(false);
       console.log('Disconnected from game server');
-      // Could add auto-reconnect logic here
     };
 
     socket.onmessage = (event) => {
@@ -129,6 +128,15 @@ export function useGameSocket() {
     }
   };
 
+  const startCpuGame = (difficulty: 'easy' | 'medium' | 'hard') => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'START_CPU_GAME', payload: { difficulty } }));
+      setGameState(prev => ({ ...prev, status: 'searching', winner: null }));
+    } else {
+      toast({ title: "Connection Error", description: "Not connected to server", variant: "destructive" });
+    }
+  };
+
   const leaveQueue = () => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: 'LEAVE_QUEUE' }));
@@ -166,6 +174,7 @@ export function useGameSocket() {
     connected,
     gameState,
     joinQueue,
+    startCpuGame,
     leaveQueue,
     makeMove,
     resetGame

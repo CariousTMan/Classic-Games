@@ -1,11 +1,18 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { motion } from "framer-motion";
-import { Gamepad2, Trophy, Users, Zap } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Gamepad2, Trophy, Users, Zap, Cpu, ArrowLeft } from "lucide-react";
 import { useGames } from "@/hooks/use-games";
+import { useState } from "react";
 
 export default function Home() {
   const { data: recentGames } = useGames();
+  const [, setLocation] = useLocation();
+  const [showCpuOptions, setShowCpuOptions] = useState(false);
+
+  const startCpuGame = (difficulty: string) => {
+    setLocation(`/game?mode=cpu&difficulty=${difficulty}`);
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -28,7 +35,7 @@ export default function Home() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
             </span>
-            Live Multiplayer
+            Live Multiplayer & CPU
           </div>
           
           <h1 className="text-6xl md:text-8xl font-display font-bold tracking-tight bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 bg-clip-text text-transparent drop-shadow-sm">
@@ -36,18 +43,74 @@ export default function Home() {
           </h1>
           
           <p className="text-xl md:text-2xl text-muted-foreground font-light max-w-2xl mx-auto leading-relaxed">
-            The classic strategy game, reimagined for the modern web. Challenge random opponents instantly.
+            The classic strategy game. Challenge random opponents online or test your skills against our AI.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
-            <Link href="/game">
-              <Button size="lg" className="w-full sm:w-auto arcade-btn bg-primary text-xl px-12 py-8 hover:scale-105 active:scale-95">
-                <Gamepad2 className="mr-3 w-6 h-6" /> Play Now
-              </Button>
-            </Link>
-            <Button variant="outline" size="lg" className="w-full sm:w-auto rounded-2xl py-8 text-lg hover:bg-secondary/50">
-              How to Play
-            </Button>
+          <div className="flex flex-col items-center justify-center gap-4 pt-8">
+            <AnimatePresence mode="wait">
+              {!showCpuOptions ? (
+                <motion.div 
+                  key="main-options"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="flex flex-col sm:flex-row gap-4 w-full justify-center"
+                >
+                  <Link href="/game">
+                    <Button size="lg" className="w-full sm:w-auto arcade-btn bg-primary text-xl px-12 py-8 hover:scale-105 active:scale-95">
+                      <Users className="mr-3 w-6 h-6" /> Online Play
+                    </Button>
+                  </Link>
+                  <Button 
+                    variant="outline" 
+                    size="lg" 
+                    onClick={() => setShowCpuOptions(true)}
+                    className="w-full sm:w-auto rounded-2xl py-8 text-xl px-12 hover:bg-secondary/50 border-2"
+                  >
+                    <Cpu className="mr-3 w-6 h-6" /> Play CPU
+                  </Button>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  key="cpu-options"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="flex flex-col items-center gap-4 w-full"
+                >
+                  <div className="flex flex-wrap justify-center gap-3">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => startCpuGame('easy')}
+                      className="rounded-2xl py-6 px-8 text-lg border-2 border-green-500/30 hover:bg-green-500/10"
+                    >
+                      Easy
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => startCpuGame('medium')}
+                      className="rounded-2xl py-6 px-8 text-lg border-2 border-yellow-500/30 hover:bg-yellow-500/10"
+                    >
+                      Medium
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => startCpuGame('hard')}
+                      className="rounded-2xl py-6 px-8 text-lg border-2 border-red-500/30 hover:bg-red-500/10"
+                    >
+                      Hard
+                    </Button>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => setShowCpuOptions(false)}
+                    className="flex items-center gap-2 text-muted-foreground"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Back to Main Menu
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </motion.div>
 
@@ -70,8 +133,8 @@ export default function Home() {
           <div className="grid md:grid-cols-3 gap-8">
             <FeatureCard 
               icon={<Zap className="w-8 h-8 text-yellow-500" />}
-              title="Instant Matchmaking"
-              desc="Jump into a queue and get paired with an opponent in seconds."
+              title="Smart AI"
+              desc="Practice your skills against our CPU with multiple difficulty levels."
             />
             <FeatureCard 
               icon={<Users className="w-8 h-8 text-blue-500" />}
@@ -80,8 +143,8 @@ export default function Home() {
             />
             <FeatureCard 
               icon={<Trophy className="w-8 h-8 text-red-500" />}
-              title="Competitive Play"
-              desc="Track your wins and climb the leaderboard (coming soon!)."
+              title="Instant Play"
+              desc="No accounts needed. Just jump in and start connecting four!"
             />
           </div>
         </div>
