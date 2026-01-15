@@ -5,11 +5,12 @@ import { z } from "zod";
 // We'll store game history in the DB, but active game state will be in memory for speed
 export const games = pgTable("games", {
   id: serial("id").primaryKey(),
+  gameType: text("game_type").notNull().default("connect4"), // 'connect4', 'checkers'
   player1Id: text("player1_id").notNull(),
   player2Id: text("player2_id").notNull(), // Will be 'cpu' for CPU games
   winnerId: text("winner_id"),
-  // Board state: 6 rows x 7 cols. 0=empty, 1=Player1 (Red), 2=Player2 (Yellow)
-  board: jsonb("board").$type<number[][]>().notNull(),
+  // Board state: flexible for different games
+  board: jsonb("board").notNull(),
   turn: text("turn").notNull(), // 'player1' or 'player2'
   status: text("status").notNull(), // 'playing', 'finished', 'aborted'
   isCpu: boolean("is_cpu").default(false).notNull(),
@@ -35,12 +36,12 @@ export const WS_MESSAGES = {
 } as const;
 
 export type WsMessage =
-  | { type: 'JOIN_QUEUE' }
+  | { type: 'JOIN_QUEUE', payload: { gameType: string } }
   | { type: 'LEAVE_QUEUE' }
-  | { type: 'START_CPU_GAME', payload: { difficulty: 'easy' | 'medium' | 'hard' } }
-  | { type: 'MATCH_FOUND', payload: { gameId: number, yourColor: 1 | 2, opponentId: string } }
-  | { type: 'MAKE_MOVE', payload: { column: number, gameId: number } }
-  | { type: 'GAME_UPDATE', payload: { board: number[][], turn: 1 | 2 } }
-  | { type: 'GAME_OVER', payload: { winner: 1 | 2 | 'draw', board: number[][] } }
+  | { type: 'START_CPU_GAME', payload: { gameType: string, difficulty: 'easy' | 'medium' | 'hard' } }
+  | { type: 'MATCH_FOUND', payload: { gameId: number, gameType: string, yourColor: 1 | 2, opponentId: string } }
+  | { type: 'MAKE_MOVE', payload: { move: any, gameId: number } }
+  | { type: 'GAME_UPDATE', payload: { board: any, turn: 1 | 2 } }
+  | { type: 'GAME_OVER', payload: { winner: 1 | 2 | 'draw', board: any } }
   | { type: 'OPPONENT_DISCONNECTED' }
   | { type: 'ERROR', payload: { message: string } };

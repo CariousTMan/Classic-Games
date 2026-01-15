@@ -4,23 +4,23 @@ import { useToast } from "@/hooks/use-toast";
 
 type GameState = {
   status: 'idle' | 'searching' | 'playing' | 'game_over';
+  gameType: string | null;
   gameId: number | null;
-  board: number[][]; // 6 rows x 7 cols
-  turn: 1 | 2; // 1 or 2
+  board: any;
+  turn: 1 | 2;
   myColor: 1 | 2 | null;
   winner: 1 | 2 | 'draw' | null;
   opponentConnected: boolean;
 };
 
-const INITIAL_BOARD = Array(6).fill(0).map(() => Array(7).fill(0));
-
 export function useGameSocket() {
   const [connected, setConnected] = useState(false);
   const [gameState, setGameState] = useState<GameState>({
     status: 'idle',
+    gameType: null,
     gameId: null,
-    board: INITIAL_BOARD,
-    turn: 1, // Red starts usually
+    board: null,
+    turn: 1,
     myColor: null,
     winner: null,
     opponentConnected: true,
@@ -36,16 +36,8 @@ export function useGameSocket() {
     const socket = new WebSocket(wsUrl);
     wsRef.current = socket;
 
-    socket.onopen = () => {
-      setConnected(true);
-      console.log('Connected to game server');
-    };
-
-    socket.onclose = () => {
-      setConnected(false);
-      console.log('Disconnected from game server');
-    };
-
+    socket.onopen = () => setConnected(true);
+    socket.onclose = () => setConnected(false);
     socket.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data) as WsMessage;
@@ -55,9 +47,7 @@ export function useGameSocket() {
       }
     };
 
-    return () => {
-      socket.close();
-    };
+    return () => socket.close();
   }, []);
 
   const handleMessage = useCallback((message: WsMessage) => {
@@ -66,17 +56,17 @@ export function useGameSocket() {
         setGameState(prev => ({
           ...prev,
           status: 'playing',
+          gameType: message.payload.gameType,
           gameId: message.payload.gameId,
           myColor: message.payload.yourColor,
-          board: INITIAL_BOARD,
+          board: message.payload.gameType === 'checkers' ? [] : Array(6).fill(0).map(() => Array(7).fill(0)),
           turn: 1,
           winner: null,
           opponentConnected: true
         }));
         toast({
           title: "Match Found!",
-          description: `You are playing as ${message.payload.yourColor === 1 ? 'Red' : 'Yellow'}.`,
-          duration: 3000,
+          description: `Game: ${message.payload.gameType}. You are Player ${message.payload.yourColor}.`,
         });
         break;
 
@@ -98,42 +88,22 @@ export function useGameSocket() {
         break;
 
       case 'OPPONENT_DISCONNECTED':
-        setGameState(prev => ({
-          ...prev,
-          opponentConnected: false
-        }));
-        toast({
-          title: "Opponent Disconnected",
-          description: "Your opponent left the game.",
-          variant: "destructive",
-        });
-        break;
-
-      case 'ERROR':
-        toast({
-          title: "Error",
-          description: message.payload.message,
-          variant: "destructive",
-        });
+        setGameState(prev => ({ ...prev, opponentConnected: false }));
         break;
     }
   }, [toast]);
 
-  const joinQueue = () => {
+  const joinQueue = (gameType: string = 'connect4') => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'JOIN_QUEUE' }));
-      setGameState(prev => ({ ...prev, status: 'searching', winner: null }));
-    } else {
-      toast({ title: "Connection Error", description: "Not connected to server", variant: "destructive" });
+      wsRef.current.send(JSON.stringify({ type: 'JOIN_QUEUE', payload: { gameType } }));
+      setGameState(prev => ({ ...prev, status: 'searching', gameType, winner: null }));
     }
   };
 
-  const startCpuGame = (difficulty: 'easy' | 'medium' | 'hard') => {
+  const startCpuGame = (gameType: string, difficulty: 'easy' | 'medium' | 'hard') => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'START_CPU_GAME', payload: { difficulty } }));
-      setGameState(prev => ({ ...prev, status: 'searching', winner: null }));
-    } else {
-      toast({ title: "Connection Error", description: "Not connected to server", variant: "destructive" });
+      wsRef.current.send(JSON.stringify({ type: 'START_CPU_GAME', payload: { gameType, difficulty } }));
+      setGameState(prev => ({ ...prev, status: 'searching', gameType, winner: null }));
     }
   };
 
@@ -144,16 +114,11 @@ export function useGameSocket() {
     }
   };
 
-  const makeMove = (column: number) => {
-    if (
-      wsRef.current?.readyState === WebSocket.OPEN && 
-      gameState.status === 'playing' && 
-      gameState.turn === gameState.myColor &&
-      gameState.gameId
-    ) {
+  const makeMove = (move: any) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN && gameState.gameId) {
       wsRef.current.send(JSON.stringify({ 
         type: 'MAKE_MOVE', 
-        payload: { column, gameId: gameState.gameId } 
+        payload: { move, gameId: gameState.gameId } 
       }));
     }
   };
@@ -161,8 +126,9 @@ export function useGameSocket() {
   const resetGame = () => {
     setGameState({
       status: 'idle',
+      gameType: null,
       gameId: null,
-      board: INITIAL_BOARD,
+      board: null,
       turn: 1,
       myColor: null,
       winner: null,
@@ -170,13 +136,5 @@ export function useGameSocket() {
     });
   };
 
-  return {
-    connected,
-    gameState,
-    joinQueue,
-    startCpuGame,
-    leaveQueue,
-    makeMove,
-    resetGame
-  };
+  return { connected, gameState, joinQueue, startCpuGame, leaveQueue, makeMove, resetGame };
 }

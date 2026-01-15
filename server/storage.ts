@@ -2,54 +2,80 @@ import { games, type Game, type InsertGame } from "@shared/schema";
 
 export interface IStorage {
   // Queue operations
-  addToQueue(userId: string): void;
+  addToQueue(userId: string, gameType: string): void;
   removeFromQueue(userId: string): void;
-  findMatch(): { p1: string; p2: string } | null;
+  findMatch(gameType: string): { p1: string; p2: string } | null;
   
   // Game operations
-  createGame(p1: string, p2: string, isCpu?: boolean, difficulty?: string): Promise<Game>;
+  createGame(p1: string, p2: string, gameType: string, isCpu?: boolean, difficulty?: string): Promise<Game>;
   getGame(gameId: number): Promise<Game | undefined>;
-  updateGame(gameId: number, board: number[][], turn: string, status: string, winnerId?: string | null): Promise<Game>;
+  updateGame(gameId: number, board: any, turn: string, status: string, winnerId?: string | null): Promise<Game>;
   
   // Helpers
   getGameByPlayer(userId: string): Promise<Game | undefined>;
 }
 
 export class MemStorage implements IStorage {
-  private queue: Set<string> = new Set();
+  private queues: Map<string, Set<string>> = new Map();
   private activeGames: Map<number, Game> = new Map();
   private gameIdCounter = 1;
 
-  addToQueue(userId: string): void {
-    this.queue.add(userId);
+  addToQueue(userId: string, gameType: string): void {
+    if (!this.queues.has(gameType)) {
+      this.queues.set(gameType, new Set());
+    }
+    this.queues.get(gameType)!.add(userId);
   }
 
   removeFromQueue(userId: string): void {
-    this.queue.delete(userId);
+    for (const queue of this.queues.values()) {
+      queue.delete(userId);
+    }
   }
 
-  findMatch(): { p1: string; p2: string } | null {
-    if (this.queue.size >= 2) {
-      const it = this.queue.values();
+  findMatch(gameType: string): { p1: string; p2: string } | null {
+    const queue = this.queues.get(gameType);
+    if (queue && queue.size >= 2) {
+      const it = queue.values();
       const p1 = it.next().value;
       const p2 = it.next().value;
-      this.queue.delete(p1);
-      this.queue.delete(p2);
-      return { p1, p2 };
+      if (p1 && p2) {
+        queue.delete(p1);
+        queue.delete(p2);
+        return { p1, p2 };
+      }
     }
     return null;
   }
 
-  async createGame(p1: string, p2: string, isCpu: boolean = false, difficulty: string = 'easy'): Promise<Game> {
+  async createGame(p1: string, p2: string, gameType: string, isCpu: boolean = false, difficulty: string = 'easy'): Promise<Game> {
     const id = this.gameIdCounter++;
-    // 6 rows, 7 cols
-    const board = Array(6).fill(null).map(() => Array(7).fill(0));
+    let board: any;
+    
+    if (gameType === 'checkers') {
+      // 8x8 checkers board
+      // 0: empty, 1: red, 2: black, 11: red king, 22: black king
+      board = Array(8).fill(null).map((_, r) => 
+        Array(8).fill(null).map((_, c) => {
+          if ((r + c) % 2 === 1) {
+            if (r < 3) return 2; // Black pieces at top
+            if (r > 4) return 1; // Red pieces at bottom
+          }
+          return 0;
+        })
+      );
+    } else {
+      // Default Connect 4: 6 rows, 7 cols
+      board = Array(6).fill(null).map(() => Array(7).fill(0));
+    }
+
     const game: Game = {
       id,
+      gameType,
       player1Id: p1,
       player2Id: p2,
       board,
-      turn: 'player1', // p1 starts
+      turn: 'player1',
       status: 'playing',
       winnerId: null,
       isCpu,
@@ -63,7 +89,7 @@ export class MemStorage implements IStorage {
     return this.activeGames.get(gameId);
   }
 
-  async updateGame(gameId: number, board: number[][], turn: string, status: string, winnerId: string | null = null): Promise<Game> {
+  async updateGame(gameId: number, board: any, turn: string, status: string, winnerId: string | null = null): Promise<Game> {
     const game = this.activeGames.get(gameId);
     if (!game) throw new Error("Game not found");
     
