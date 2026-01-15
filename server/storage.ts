@@ -95,7 +95,11 @@ export class MemStorage implements IStorage {
       status: 'playing',
       winnerId: null,
       isCpu,
-      difficulty
+      difficulty,
+      metadata: gameType === 'chess' ? { 
+        castlingRights: { wK: true, wQ: true, bK: true, bQ: true },
+        enPassant: null 
+      } : {}
     };
     this.activeGames.set(id, game);
     return game;

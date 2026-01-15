@@ -15,6 +15,7 @@ export const games = pgTable("games", {
   status: text("status").notNull(), // 'playing', 'finished', 'aborted'
   isCpu: boolean("is_cpu").default(false).notNull(),
   difficulty: text("difficulty"), // 'easy', 'medium', 'hard'
+  metadata: jsonb("metadata").notNull().default({}), // For specialized state like castling rights
 });
 
 export const insertGameSchema = createInsertSchema(games).omit({ id: true });

@@ -37,19 +37,17 @@ function isValidCheckersMove(board: number[][], from: { r: number, c: number }, 
   const piece = board[from.r][from.c];
   if (piece === 0 || piece % 10 !== playerNum) return { valid: false };
   if (board[to.r][to.c] !== 0) return { valid: false };
-  if ((to.r + to.c) % 2 === 0) return { valid: false }; // Must stay on dark squares
+  if ((to.r + to.c) % 2 === 0) return { valid: false };
 
   const dr = to.r - from.r;
   const dc = Math.abs(to.c - from.c);
   const isKing = piece > 10;
 
-  // Simple move
   if (Math.abs(dr) === 1 && dc === 1) {
-    if (!isKing && (playerNum === 1 ? dr > 0 : dr < 0)) return { valid: false }; // Non-kings can't move backwards
+    if (!isKing && (playerNum === 1 ? dr > 0 : dr < 0)) return { valid: false };
     return { valid: true };
   }
 
-  // Jump
   if (Math.abs(dr) === 2 && dc === 2) {
     if (!isKing && (playerNum === 1 ? dr > 0 : dr < 0)) return { valid: false };
     const midR = from.r + dr / 2;
@@ -69,7 +67,6 @@ function getValidCheckersMoves(board: number[][], playerNum: number) {
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
       if (board[r][c] % 10 === playerNum) {
-        // Check all potential move/jump squares
         for (const dr of [-1, 1, -2, 2]) {
           for (const dc of [-1, 1, -2, 2]) {
             if (Math.abs(dr) !== Math.abs(dc)) continue;
@@ -87,32 +84,24 @@ function getValidCheckersMoves(board: number[][], playerNum: number) {
       }
     }
   }
-  return jumps.length > 0 ? jumps : moves; // Forced jumps rule
+  return jumps.length > 0 ? jumps : moves;
 }
 
 function checkWinCheckers(board: number[][], nextPlayerNum: number): number | 'draw' | null {
   const moves = getValidCheckersMoves(board, nextPlayerNum);
-  if (moves.length === 0) {
-    return nextPlayerNum === 1 ? 2 : 1; // Current player has no moves, opponent wins
-  }
+  if (moves.length === 0) return nextPlayerNum === 1 ? 2 : 1;
   return null;
 }
 
-// CPU logic for Checkers
 function getCheckersCpuMove(board: number[][], difficulty: string): any {
   const moves = getValidCheckersMoves(board, 2);
   if (moves.length === 0) return null;
-  
   if (difficulty === 'easy') return moves[Math.floor(Math.random() * moves.length)];
-  
-  // Medium/Hard: Prioritize jumps (forced anyway) then prioritize kings or center
   const jumps = moves.filter((m: any) => m.captured);
   if (jumps.length > 0) return jumps[Math.floor(Math.random() * jumps.length)];
-  
   return moves[Math.floor(Math.random() * moves.length)];
 }
 
-// CPU logic for Connect 4
 function getConnect4CpuMove(board: number[][], difficulty: string): number {
   const cols = board[0].length;
   const validCols = [];
@@ -133,18 +122,18 @@ function getConnect4CpuMove(board: number[][], difficulty: string): number {
 }
 
 // Chess Logic Helpers
-function isValidChessMove(board: string[][], from: { r: number, c: number }, to: { r: number, c: number }, playerNum: number): boolean {
+function isValidChessMove(board: string[][], from: { r: number, c: number }, to: { r: number, c: number }, playerNum: number, metadata: any = {}): { valid: boolean, castling?: 'K' | 'Q' } {
   const piece = board[from.r][from.c];
-  if (piece === '') return false;
+  if (piece === '') return { valid: false };
   
   const isWhite = piece === piece.toUpperCase();
-  if (playerNum === 1 && !isWhite) return false;
-  if (playerNum === 2 && isWhite) return false;
+  if (playerNum === 1 && !isWhite) return { valid: false };
+  if (playerNum === 2 && isWhite) return { valid: false };
 
   const targetPiece = board[to.r][to.c];
   if (targetPiece !== '') {
     const isTargetWhite = targetPiece === targetPiece.toUpperCase();
-    if (isWhite === isTargetWhite) return false; // Can't capture own piece
+    if (isWhite === isTargetWhite) return { valid: false };
   }
 
   const dr = to.r - from.r;
@@ -154,39 +143,41 @@ function isValidChessMove(board: string[][], from: { r: number, c: number }, to:
   const type = piece.toUpperCase();
 
   switch (type) {
-    case 'P': // Pawn
+    case 'P':
       const direction = isWhite ? -1 : 1;
       const startRow = isWhite ? 6 : 1;
-      
-      // Move forward
       if (dc === 0 && targetPiece === '') {
-        if (dr === direction) return true;
-        if (from.r === startRow && dr === 2 * direction && board[from.r + direction][from.c] === '') return true;
+        if (dr === direction) return { valid: true };
+        if (from.r === startRow && dr === 2 * direction && board[from.r + direction][from.c] === '') return { valid: true };
       }
-      // Capture
-      if (absDc === 1 && dr === direction && targetPiece !== '') return true;
-      return false;
-
-    case 'R': // Rook
-      if (dr !== 0 && dc !== 0) return false;
-      return isPathClear(board, from, to);
-
-    case 'N': // Knight
-      return (absDr === 2 && absDc === 1) || (absDr === 1 && absDc === 2);
-
-    case 'B': // Bishop
-      if (absDr !== absDc) return false;
-      return isPathClear(board, from, to);
-
-    case 'Q': // Queen
-      if (absDr !== absDc && dr !== 0 && dc !== 0) return false;
-      return isPathClear(board, from, to);
-
-    case 'K': // King
-      return absDr <= 1 && absDc <= 1;
+      if (absDc === 1 && dr === direction && targetPiece !== '') return { valid: true };
+      return { valid: false };
+    case 'R':
+      if (dr !== 0 && dc !== 0) return { valid: false };
+      return { valid: isPathClear(board, from, to) };
+    case 'N':
+      return { valid: (absDr === 2 && absDc === 1) || (absDr === 1 && absDc === 2) };
+    case 'B':
+      if (absDr !== absDc) return { valid: false };
+      return { valid: isPathClear(board, from, to) };
+    case 'Q':
+      if (absDr !== absDc && dr !== 0 && dc !== 0) return { valid: false };
+      return { valid: isPathClear(board, from, to) };
+    case 'K':
+      if (dr === 0 && absDc === 2) {
+        const rights = metadata?.castlingRights || {};
+        const r = from.r;
+        if (isWhite && r === 7) {
+          if (to.c === 6 && rights.wK && board[r][5] === '' && board[r][6] === '') return { valid: true, castling: 'K' };
+          if (to.c === 2 && rights.wQ && board[r][1] === '' && board[r][2] === '' && board[r][3] === '') return { valid: true, castling: 'Q' };
+        } else if (!isWhite && r === 0) {
+          if (to.c === 6 && rights.bK && board[r][5] === '' && board[r][6] === '') return { valid: true, castling: 'K' };
+          if (to.c === 2 && rights.bQ && board[r][1] === '' && board[r][2] === '' && board[r][3] === '') return { valid: true, castling: 'Q' };
+        }
+      }
+      return { valid: absDr <= 1 && absDc <= 1 };
   }
-
-  return false;
+  return { valid: false };
 }
 
 function isPathClear(board: string[][], from: { r: number, c: number }, to: { r: number, c: number }): boolean {
@@ -194,7 +185,6 @@ function isPathClear(board: string[][], from: { r: number, c: number }, to: { r:
   const dc = Math.sign(to.c - from.c);
   let currR = from.r + dr;
   let currC = from.c + dc;
-
   while (currR !== to.r || currC !== to.c) {
     if (board[currR][currC] !== '') return false;
     currR += dr;
@@ -203,25 +193,22 @@ function isPathClear(board: string[][], from: { r: number, c: number }, to: { r:
   return true;
 }
 
-function getChessCpuMove(board: string[][]): any {
+function getChessCpuMove(board: string[][], metadata: any = {}): any {
   const moves = [];
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
       const piece = board[r][c];
-      if (piece !== '' && piece === piece.toLowerCase()) { // Black pieces
+      if (piece !== '' && piece === piece.toLowerCase()) {
         for (let tr = 0; tr < 8; tr++) {
           for (let tc = 0; tc < 8; tc++) {
-            if (isValidChessMove(board, { r, c }, { r: tr, c: tc }, 2)) {
-              moves.push({ from: { r, c }, to: { r: tr, c: tc } });
-            }
+            const res = isValidChessMove(board, { r, c }, { r: tr, tc }, 2, metadata);
+            if (res.valid) moves.push({ from: { r, c }, to: { r: tr, c: tc }, castling: res.castling });
           }
         }
       }
     }
   }
-  
   if (moves.length === 0) return null;
-  // Simple heuristic: prefer captures
   const captures = moves.filter(m => board[m.to.r][m.to.c] !== '');
   return captures.length > 0 ? captures[Math.floor(Math.random() * captures.length)] : moves[Math.floor(Math.random() * moves.length)];
 }
@@ -284,28 +271,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             let r = board.length - 1;
             while (r >= 0 && board[r][column] !== 0) r--;
             if (r < 0) return;
-
             const playerNum = isPlayer1 ? 1 : 2;
             const newBoard = board.map(row => [...row]);
             newBoard[r][column] = playerNum;
-
             let status = 'playing';
             let winnerId = null;
-            if (checkWinConnect4(newBoard, playerNum)) {
-              status = 'finished';
-              winnerId = userId;
-            } else if (newBoard[0].every(cell => cell !== 0)) {
-              status = 'finished';
-              winnerId = 'draw';
-            }
-
+            if (checkWinConnect4(newBoard, playerNum)) { status = 'finished'; winnerId = userId; }
+            else if (newBoard[0].every(cell => cell !== 0)) { status = 'finished'; winnerId = 'draw'; }
             let turn = game.turn === 'player1' ? 'player2' : 'player1';
             await storage.updateGame(gameId, newBoard, turn, status, winnerId);
-
             notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: turn === 'player1' ? 1 : 2 } }));
-            if (status === 'finished') {
-              notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winnerId === 'draw' ? 'draw' : playerNum, board: newBoard } }));
-            } else if (game.isCpu && turn === 'player2') {
+            if (status === 'finished') notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winnerId === 'draw' ? 'draw' : playerNum, board: newBoard } }));
+            else if (game.isCpu && turn === 'player2') {
               setTimeout(async () => {
                 const cpuCol = getConnect4CpuMove(newBoard, game.difficulty || 'easy');
                 let cr = newBoard.length - 1;
@@ -313,18 +290,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                 newBoard[cr][cpuCol] = 2;
                 let cStatus = 'playing';
                 let cWinnerId = null;
-                if (checkWinConnect4(newBoard, 2)) {
-                  cStatus = 'finished';
-                  cWinnerId = 'cpu';
-                } else if (newBoard[0].every((cell: any) => cell !== 0)) {
-                  cStatus = 'finished';
-                  cWinnerId = 'draw';
-                }
+                if (checkWinConnect4(newBoard, 2)) { cStatus = 'finished'; cWinnerId = 'cpu'; }
+                else if (newBoard[0].every((cell: any) => cell !== 0)) { cStatus = 'finished'; cWinnerId = 'draw'; }
                 await storage.updateGame(gameId, newBoard, 'player1', cStatus, cWinnerId);
                 notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: 1 } }));
-                if (cStatus === 'finished') {
-                  notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: cWinnerId === 'draw' ? 'draw' : 2, board: newBoard } }));
-                }
+                if (cStatus === 'finished') notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: cWinnerId === 'draw' ? 'draw' : 2, board: newBoard } }));
               }, 500);
             }
           } else if (game.gameType === 'checkers') {
@@ -332,90 +302,83 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             const board = game.board as number[][];
             const playerNum = isPlayer1 ? 1 : 2;
             const res = isValidCheckersMove(board, from, to, playerNum);
-            
-            if (!res.valid) {
-              ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Invalid move" } }));
-              return;
-            }
-
+            if (!res.valid) { ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Invalid move" } })); return; }
             const newBoard = board.map(row => [...row]);
             const piece = newBoard[from.r][from.c];
             newBoard[to.r][to.c] = piece;
             newBoard[from.r][from.c] = 0;
             if (res.captured) newBoard[res.captured.r][res.captured.c] = 0;
-
-            // King promotion
             if (playerNum === 1 && to.r === 0) newBoard[to.r][to.c] = 11;
             if (playerNum === 2 && to.r === 7) newBoard[to.r][to.c] = 22;
-
             let turn = game.turn === 'player1' ? 'player2' : 'player1';
             let winner = checkWinCheckers(newBoard, turn === 'player1' ? 1 : 2);
             let status = winner ? 'finished' : 'playing';
-
             await storage.updateGame(gameId, newBoard, turn, status, winner ? (winner === 1 ? game.player1Id : game.player2Id) : null);
             notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: turn === 'player1' ? 1 : 2 } }));
-            
-            if (status === 'finished') {
-              notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winner === 'draw' ? 'draw' : winner, board: newBoard } }));
-            } else if (game.isCpu && turn === 'player2') {
+            if (status === 'finished') notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winner === 'draw' ? 'draw' : winner, board: newBoard } }));
+            else if (game.isCpu && turn === 'player2') {
               setTimeout(async () => {
                 const cpuMove = getCheckersCpuMove(newBoard, game.difficulty || 'easy');
                 if (!cpuMove) return;
-
                 const cBoard = newBoard.map(row => [...row]);
                 const cPiece = cBoard[cpuMove.from.r][cpuMove.from.c];
                 cBoard[cpuMove.to.r][cpuMove.to.c] = cPiece;
                 cBoard[cpuMove.from.r][cpuMove.from.c] = 0;
                 if (cpuMove.captured) cBoard[cpuMove.captured.r][cpuMove.captured.c] = 0;
                 if (cpuMove.to.r === 7) cBoard[cpuMove.to.r][cpuMove.to.c] = 22;
-
                 let cWinner = checkWinCheckers(cBoard, 1);
                 let cStatus = cWinner ? 'finished' : 'playing';
-                
                 await storage.updateGame(gameId, cBoard, 'player1', cStatus, cWinner ? (cWinner === 1 ? game.player1Id : 'cpu') : null);
                 notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: cBoard, turn: 1 } }));
-                if (cStatus === 'finished') {
-                  notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: cWinner === 'draw' ? 'draw' : cWinner, board: cBoard } }));
-                }
+                if (cStatus === 'finished') notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: cWinner === 'draw' ? 'draw' : cWinner, board: cBoard } }));
               }, 500);
             }
           } else if (game.gameType === 'chess') {
             const { from, to } = move;
             const board = game.board as string[][];
             const playerNum = isPlayer1 ? 1 : 2;
-            
-            if (!isValidChessMove(board, from, to, playerNum)) {
-              ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Invalid chess move" } }));
-              return;
+            const newMetadata = { ...(game.metadata as any) || {} };
+            if (!newMetadata.castlingRights) newMetadata.castlingRights = { wK: true, wQ: true, bK: true, bQ: true };
+            const movingPiece = board[from.r][from.c];
+            if (movingPiece === 'K') { newMetadata.castlingRights.wK = false; newMetadata.castlingRights.wQ = false; }
+            if (movingPiece === 'k') { newMetadata.castlingRights.bK = false; newMetadata.castlingRights.bQ = false; }
+            if (movingPiece === 'R' && from.r === 7 && from.c === 7) newMetadata.castlingRights.wK = false;
+            if (movingPiece === 'R' && from.r === 7 && from.c === 0) newMetadata.castlingRights.wQ = false;
+            if (movingPiece === 'r' && from.r === 0 && from.c === 7) newMetadata.castlingRights.bK = false;
+            if (movingPiece === 'r' && from.r === 0 && from.c === 0) newMetadata.castlingRights.bQ = false;
+            const moveRes = isValidChessMove(board, from, to, playerNum, newMetadata);
+            if (!moveRes.valid) { ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Invalid chess move" } })); return; }
+            const chessBoard = board.map(row => [...row]);
+            chessBoard[to.r][to.c] = chessBoard[from.r][from.c];
+            chessBoard[from.r][from.c] = '';
+            if (moveRes.castling) {
+              const r = from.r;
+              if (moveRes.castling === 'K') { chessBoard[r][5] = chessBoard[r][7]; chessBoard[r][7] = ''; }
+              else { chessBoard[r][3] = chessBoard[r][0]; chessBoard[r][0] = ''; }
             }
-
-            const newBoard = board.map(row => [...row]);
-            newBoard[to.r][to.c] = newBoard[from.r][from.c];
-            newBoard[from.r][from.c] = '';
-            
-            let turn = game.turn === 'player1' ? 'player2' : 'player1';
-            await storage.updateGame(gameId, newBoard, turn, 'playing', null);
-            
-            notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: turn === 'player1' ? 1 : 2 } }));
-
-            if (game.isCpu && turn === 'player2') {
+            let nextTurn = game.turn === 'player1' ? 'player2' : 'player1';
+            await storage.updateGame(gameId, chessBoard, nextTurn, 'playing', null);
+            notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: chessBoard, turn: nextTurn === 'player1' ? 1 : 2 } }));
+            if (game.isCpu && nextTurn === 'player2') {
               setTimeout(async () => {
-                const cpuMove = getChessCpuMove(newBoard);
+                const cpuMove = getChessCpuMove(chessBoard, newMetadata);
                 if (!cpuMove) return;
-
-                const cBoard = newBoard.map(row => [...row]);
-                cBoard[cpuMove.to.r][cpuMove.to.c] = cBoard[cpuMove.from.r][cpuMove.from.c];
+                const cBoard = chessBoard.map(row => [...row]);
+                const cPiece = cBoard[cpuMove.from.r][cpuMove.from.c];
+                cBoard[cpuMove.to.r][cpuMove.to.c] = cPiece;
                 cBoard[cpuMove.from.r][cpuMove.from.c] = '';
-
+                if (cpuMove.castling) {
+                  const cr = cpuMove.from.r;
+                  if (cpuMove.castling === 'K') { cBoard[cr][5] = cBoard[cr][7]; cBoard[cr][7] = ''; }
+                  else { cBoard[cr][3] = cBoard[cr][0]; cBoard[cr][0] = ''; }
+                }
                 await storage.updateGame(gameId, cBoard, 'player1', 'playing', null);
                 notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: cBoard, turn: 1 } }));
               }, 500);
             }
           }
         }
-      } catch (err) {
-        console.error("WS Message Error:", err);
-      }
+      } catch (err) { console.error("WS Message Error:", err); }
     });
 
     ws.on('close', async () => {
