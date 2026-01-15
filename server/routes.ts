@@ -132,6 +132,100 @@ function getConnect4CpuMove(board: number[][], difficulty: string): number {
   return validCols[Math.floor(Math.random() * validCols.length)];
 }
 
+// Chess Logic Helpers
+function isValidChessMove(board: string[][], from: { r: number, c: number }, to: { r: number, c: number }, playerNum: number): boolean {
+  const piece = board[from.r][from.c];
+  if (piece === '') return false;
+  
+  const isWhite = piece === piece.toUpperCase();
+  if (playerNum === 1 && !isWhite) return false;
+  if (playerNum === 2 && isWhite) return false;
+
+  const targetPiece = board[to.r][to.c];
+  if (targetPiece !== '') {
+    const isTargetWhite = targetPiece === targetPiece.toUpperCase();
+    if (isWhite === isTargetWhite) return false; // Can't capture own piece
+  }
+
+  const dr = to.r - from.r;
+  const dc = to.c - from.c;
+  const absDr = Math.abs(dr);
+  const absDc = Math.abs(dc);
+  const type = piece.toUpperCase();
+
+  switch (type) {
+    case 'P': // Pawn
+      const direction = isWhite ? -1 : 1;
+      const startRow = isWhite ? 6 : 1;
+      
+      // Move forward
+      if (dc === 0 && targetPiece === '') {
+        if (dr === direction) return true;
+        if (from.r === startRow && dr === 2 * direction && board[from.r + direction][from.c] === '') return true;
+      }
+      // Capture
+      if (absDc === 1 && dr === direction && targetPiece !== '') return true;
+      return false;
+
+    case 'R': // Rook
+      if (dr !== 0 && dc !== 0) return false;
+      return isPathClear(board, from, to);
+
+    case 'N': // Knight
+      return (absDr === 2 && absDc === 1) || (absDr === 1 && absDc === 2);
+
+    case 'B': // Bishop
+      if (absDr !== absDc) return false;
+      return isPathClear(board, from, to);
+
+    case 'Q': // Queen
+      if (absDr !== absDc && dr !== 0 && dc !== 0) return false;
+      return isPathClear(board, from, to);
+
+    case 'K': // King
+      return absDr <= 1 && absDc <= 1;
+  }
+
+  return false;
+}
+
+function isPathClear(board: string[][], from: { r: number, c: number }, to: { r: number, c: number }): boolean {
+  const dr = Math.sign(to.r - from.r);
+  const dc = Math.sign(to.c - from.c);
+  let currR = from.r + dr;
+  let currC = from.c + dc;
+
+  while (currR !== to.r || currC !== to.c) {
+    if (board[currR][currC] !== '') return false;
+    currR += dr;
+    currC += dc;
+  }
+  return true;
+}
+
+function getChessCpuMove(board: string[][]): any {
+  const moves = [];
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const piece = board[r][c];
+      if (piece !== '' && piece === piece.toLowerCase()) { // Black pieces
+        for (let tr = 0; tr < 8; tr++) {
+          for (let tc = 0; tc < 8; tc++) {
+            if (isValidChessMove(board, { r, c }, { r: tr, c: tc }, 2)) {
+              moves.push({ from: { r, c }, to: { r: tr, c: tc } });
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  if (moves.length === 0) return null;
+  // Simple heuristic: prefer captures
+  const captures = moves.filter(m => board[m.to.r][m.to.c] !== '');
+  return captures.length > 0 ? captures[Math.floor(Math.random() * captures.length)] : moves[Math.floor(Math.random() * moves.length)];
+}
+
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   const clients = new Map<string, WebSocket>();
@@ -288,9 +382,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           } else if (game.gameType === 'chess') {
             const { from, to } = move;
             const board = game.board as string[][];
+            const playerNum = isPlayer1 ? 1 : 2;
             
-            // Simple validation: Ensure there's a piece at from
-            if (board[from.r][from.c] === '') return;
+            if (!isValidChessMove(board, from, to, playerNum)) {
+              ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Invalid chess move" } }));
+              return;
+            }
 
             const newBoard = board.map(row => [...row]);
             newBoard[to.r][to.c] = newBoard[from.r][from.c];
@@ -300,6 +397,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             await storage.updateGame(gameId, newBoard, turn, 'playing', null);
             
             notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: turn === 'player1' ? 1 : 2 } }));
+
+            if (game.isCpu && turn === 'player2') {
+              setTimeout(async () => {
+                const cpuMove = getChessCpuMove(newBoard);
+                if (!cpuMove) return;
+
+                const cBoard = newBoard.map(row => [...row]);
+                cBoard[cpuMove.to.r][cpuMove.to.c] = cBoard[cpuMove.from.r][cpuMove.from.c];
+                cBoard[cpuMove.from.r][cpuMove.from.c] = '';
+
+                await storage.updateGame(gameId, cBoard, 'player1', 'playing', null);
+                notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: cBoard, turn: 1 } }));
+              }, 500);
+            }
           }
         }
       } catch (err) {
