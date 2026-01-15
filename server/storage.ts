@@ -61,6 +61,21 @@ export class MemStorage implements IStorage {
           return 0;
         })
       );
+    } else if (gameType === 'chess') {
+      // 8x8 chess board
+      // Pieces: P=pawn, R=rook, N=knight, B=bishop, Q=queen, K=king
+      // Case: Upper = white (player 1), Lower = black (player 2)
+      const backRank1 = ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'];
+      const backRank2 = ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'];
+      return Array(8).fill(null).map((_, r) => 
+        Array(8).fill(null).map((_, c) => {
+          if (r === 0) return backRank2[c]; // Black back rank
+          if (r === 1) return 'p';           // Black pawns
+          if (r === 6) return 'P';           // White pawns
+          if (r === 7) return backRank1[c]; // White back rank
+          return '';
+        })
+      );
     }
     // Default Connect 4: 6 rows, 7 cols
     return Array(6).fill(null).map(() => Array(7).fill(0));

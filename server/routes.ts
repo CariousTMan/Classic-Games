@@ -285,6 +285,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                 }
               }, 500);
             }
+          } else if (game.gameType === 'chess') {
+            const { from, to } = move;
+            const board = game.board as string[][];
+            
+            // Simple validation: Ensure there's a piece at from
+            if (board[from.r][from.c] === '') return;
+
+            const newBoard = board.map(row => [...row]);
+            newBoard[to.r][to.c] = newBoard[from.r][from.c];
+            newBoard[from.r][from.c] = '';
+            
+            let turn = game.turn === 'player1' ? 'player2' : 'player1';
+            await storage.updateGame(gameId, newBoard, turn, 'playing', null);
+            
+            notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: turn === 'player1' ? 1 : 2 } }));
           }
         }
       } catch (err) {

@@ -65,6 +65,18 @@ export function useGameSocket() {
                 return 0;
               })
             );
+          } else if (message.payload.gameType === 'chess') {
+            const backRank1 = ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'];
+            const backRank2 = ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'];
+            initialBoard = Array(8).fill(null).map((_, r) => 
+              Array(8).fill(null).map((_, c) => {
+                if (r === 0) return backRank2[c];
+                if (r === 1) return 'p';
+                if (r === 6) return 'P';
+                if (r === 7) return backRank1[c];
+                return '';
+              })
+            );
           } else {
             initialBoard = Array(6).fill(0).map(() => Array(7).fill(0));
           }
