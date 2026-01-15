@@ -33,19 +33,22 @@ export function CheckersBoard({ board, onMove, myTurn, myColor }: CheckersBoardP
   };
 
   return (
-    <div className="grid grid-cols-8 gap-1 bg-slate-800 p-2 rounded-lg shadow-2xl aspect-square w-full max-w-[500px] border-8 border-slate-900">
+    <div className="grid grid-cols-8 bg-slate-800 p-2 rounded-lg shadow-2xl aspect-square w-full max-w-[500px] border-8 border-slate-900 overflow-hidden">
       {board.map((row, r) =>
         row.map((cell, c) => (
           <div
             key={`${r}-${c}`}
             onClick={() => handleClick(r, c)}
             className={`
-              relative aspect-square flex items-center justify-center rounded-sm cursor-pointer transition-all duration-200
+              relative aspect-square flex items-center justify-center cursor-pointer transition-all duration-200
               ${(r + c) % 2 === 0 ? 'bg-slate-200 dark:bg-slate-300' : 'bg-slate-700 dark:bg-slate-800'}
               ${selected?.r === r && selected?.c === c ? 'ring-4 ring-blue-400 ring-inset z-10 scale-105' : ''}
               ${myTurn && (r + c) % 2 === 1 && cell === 0 && selected ? 'hover:bg-slate-600' : ''}
             `}
           >
+            {/* Cell border to simulate grid */}
+            <div className="absolute inset-0 border-[0.5px] border-black/10 pointer-events-none" />
+            
             {cell !== 0 && (
               <motion.div
                 layoutId={`piece-${r}-${c}`}
