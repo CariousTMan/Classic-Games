@@ -32,7 +32,87 @@ function checkWinConnect4(board: number[][], player: number): boolean {
   return false;
 }
 
-// Simple CPU logic for Connect 4
+// Checkers Logic Helpers
+function isValidCheckersMove(board: number[][], from: { r: number, c: number }, to: { r: number, c: number }, playerNum: number): { valid: boolean, captured?: { r: number, c: number } } {
+  const piece = board[from.r][from.c];
+  if (piece === 0 || piece % 10 !== playerNum) return { valid: false };
+  if (board[to.r][to.c] !== 0) return { valid: false };
+  if ((to.r + to.c) % 2 === 0) return { valid: false }; // Must stay on dark squares
+
+  const dr = to.r - from.r;
+  const dc = Math.abs(to.c - from.c);
+  const isKing = piece > 10;
+
+  // Simple move
+  if (Math.abs(dr) === 1 && dc === 1) {
+    if (!isKing && (playerNum === 1 ? dr > 0 : dr < 0)) return { valid: false }; // Non-kings can't move backwards
+    return { valid: true };
+  }
+
+  // Jump
+  if (Math.abs(dr) === 2 && dc === 2) {
+    if (!isKing && (playerNum === 1 ? dr > 0 : dr < 0)) return { valid: false };
+    const midR = from.r + dr / 2;
+    const midC = from.c + (to.c - from.c) / 2;
+    const midPiece = board[midR][midC];
+    if (midPiece !== 0 && midPiece % 10 !== playerNum) {
+      return { valid: true, captured: { r: midR, c: midC } };
+    }
+  }
+
+  return { valid: false };
+}
+
+function getValidCheckersMoves(board: number[][], playerNum: number) {
+  const moves = [];
+  const jumps = [];
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      if (board[r][c] % 10 === playerNum) {
+        // Check all potential move/jump squares
+        for (const dr of [-1, 1, -2, 2]) {
+          for (const dc of [-1, 1, -2, 2]) {
+            if (Math.abs(dr) !== Math.abs(dc)) continue;
+            const tr = r + dr;
+            const tc = c + dc;
+            if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
+              const res = isValidCheckersMove(board, { r, c }, { r: tr, c: tc }, playerNum);
+              if (res.valid) {
+                if (res.captured) jumps.push({ from: { r, c }, to: { r: tr, c: tc }, captured: res.captured });
+                else moves.push({ from: { r, c }, to: { r: tr, c: tc } });
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return jumps.length > 0 ? jumps : moves; // Forced jumps rule
+}
+
+function checkWinCheckers(board: number[][], nextPlayerNum: number): number | 'draw' | null {
+  const moves = getValidCheckersMoves(board, nextPlayerNum);
+  if (moves.length === 0) {
+    return nextPlayerNum === 1 ? 2 : 1; // Current player has no moves, opponent wins
+  }
+  return null;
+}
+
+// CPU logic for Checkers
+function getCheckersCpuMove(board: number[][], difficulty: string): any {
+  const moves = getValidCheckersMoves(board, 2);
+  if (moves.length === 0) return null;
+  
+  if (difficulty === 'easy') return moves[Math.floor(Math.random() * moves.length)];
+  
+  // Medium/Hard: Prioritize jumps (forced anyway) then prioritize kings or center
+  const jumps = moves.filter((m: any) => m.captured);
+  if (jumps.length > 0) return jumps[Math.floor(Math.random() * jumps.length)];
+  
+  return moves[Math.floor(Math.random() * moves.length)];
+}
+
+// CPU logic for Connect 4
 function getConnect4CpuMove(board: number[][], difficulty: string): number {
   const cols = board[0].length;
   const validCols = [];
@@ -97,6 +177,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           if (!isPlayer1 && !isPlayer2) return;
           if ((isPlayer1 && game.turn !== 'player1') || (isPlayer2 && game.turn !== 'player2')) return;
 
+          const notify = (msg: string) => {
+            const p1 = clients.get(game.player1Id);
+            const p2 = clients.get(game.player2Id);
+            if (p1?.readyState === WebSocket.OPEN) p1.send(msg);
+            if (p2?.readyState === WebSocket.OPEN) p2.send(msg);
+          };
+
           if (game.gameType === 'connect4') {
             const column = move;
             const board = game.board as number[][];
@@ -121,13 +208,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             let turn = game.turn === 'player1' ? 'player2' : 'player1';
             await storage.updateGame(gameId, newBoard, turn, status, winnerId);
 
-            const notify = (msg: string) => {
-              const p1 = clients.get(game.player1Id);
-              const p2 = clients.get(game.player2Id);
-              if (p1?.readyState === WebSocket.OPEN) p1.send(msg);
-              if (p2?.readyState === WebSocket.OPEN) p2.send(msg);
-            };
-
             notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: turn === 'player1' ? 1 : 2 } }));
             if (status === 'finished') {
               notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winnerId === 'draw' ? 'draw' : playerNum, board: newBoard } }));
@@ -142,7 +222,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                 if (checkWinConnect4(newBoard, 2)) {
                   cStatus = 'finished';
                   cWinnerId = 'cpu';
-                } else if (newBoard[0].every(cell => cell !== 0)) {
+                } else if (newBoard[0].every((cell: any) => cell !== 0)) {
                   cStatus = 'finished';
                   cWinnerId = 'draw';
                 }
@@ -154,38 +234,57 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               }, 500);
             }
           } else if (game.gameType === 'checkers') {
-            // Checkers logic: Simplified for now - accept the move if it's a valid diagonal move
             const { from, to } = move;
             const board = game.board as number[][];
-            const piece = board[from.r][from.c];
+            const playerNum = isPlayer1 ? 1 : 2;
+            const res = isValidCheckersMove(board, from, to, playerNum);
             
-            // Apply move and potential capture
+            if (!res.valid) {
+              ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Invalid move" } }));
+              return;
+            }
+
             const newBoard = board.map(row => [...row]);
+            const piece = newBoard[from.r][from.c];
             newBoard[to.r][to.c] = piece;
             newBoard[from.r][from.c] = 0;
-            
-            // Check for capture
-            if (Math.abs(to.r - from.r) === 2) {
-              const midR = (from.r + to.r) / 2;
-              const midC = (from.c + to.c) / 2;
-              newBoard[midR][midC] = 0;
-            }
-            
+            if (res.captured) newBoard[res.captured.r][res.captured.c] = 0;
+
             // King promotion
-            if (piece === 1 && to.r === 0) newBoard[to.r][to.c] = 11;
-            if (piece === 2 && to.r === 7) newBoard[to.r][to.c] = 22;
-            
+            if (playerNum === 1 && to.r === 0) newBoard[to.r][to.c] = 11;
+            if (playerNum === 2 && to.r === 7) newBoard[to.r][to.c] = 22;
+
             let turn = game.turn === 'player1' ? 'player2' : 'player1';
-            await storage.updateGame(gameId, newBoard, turn, 'playing', null);
-            
-            const notify = (msg: string) => {
-              const p1 = clients.get(game.player1Id);
-              const p2 = clients.get(game.player2Id);
-              if (p1?.readyState === WebSocket.OPEN) p1.send(msg);
-              if (p2?.readyState === WebSocket.OPEN) p2.send(msg);
-            };
-            
+            let winner = checkWinCheckers(newBoard, turn === 'player1' ? 1 : 2);
+            let status = winner ? 'finished' : 'playing';
+
+            await storage.updateGame(gameId, newBoard, turn, status, winner ? (winner === 1 ? game.player1Id : game.player2Id) : null);
             notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: turn === 'player1' ? 1 : 2 } }));
+            
+            if (status === 'finished') {
+              notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winner === 'draw' ? 'draw' : winner, board: newBoard } }));
+            } else if (game.isCpu && turn === 'player2') {
+              setTimeout(async () => {
+                const cpuMove = getCheckersCpuMove(newBoard, game.difficulty || 'easy');
+                if (!cpuMove) return;
+
+                const cBoard = newBoard.map(row => [...row]);
+                const cPiece = cBoard[cpuMove.from.r][cpuMove.from.c];
+                cBoard[cpuMove.to.r][cpuMove.to.c] = cPiece;
+                cBoard[cpuMove.from.r][cpuMove.from.c] = 0;
+                if (cpuMove.captured) cBoard[cpuMove.captured.r][cpuMove.captured.c] = 0;
+                if (cpuMove.to.r === 7) cBoard[cpuMove.to.r][cpuMove.to.c] = 22;
+
+                let cWinner = checkWinCheckers(cBoard, 1);
+                let cStatus = cWinner ? 'finished' : 'playing';
+                
+                await storage.updateGame(gameId, cBoard, 'player1', cStatus, cWinner ? (cWinner === 1 ? game.player1Id : 'cpu') : null);
+                notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: cBoard, turn: 1 } }));
+                if (cStatus === 'finished') {
+                  notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: cWinner === 'draw' ? 'draw' : cWinner, board: cBoard } }));
+                }
+              }, 500);
+            }
           }
         }
       } catch (err) {
