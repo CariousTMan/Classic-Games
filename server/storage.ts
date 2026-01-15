@@ -48,14 +48,11 @@ export class MemStorage implements IStorage {
     return null;
   }
 
-  async createGame(p1: string, p2: string, gameType: string, isCpu: boolean = false, difficulty: string = 'easy'): Promise<Game> {
-    const id = this.gameIdCounter++;
-    let board: any;
-    
+  private createInitialBoard(gameType: string): any {
     if (gameType === 'checkers') {
       // 8x8 checkers board
       // 0: empty, 1: red, 2: black, 11: red king, 22: black king
-      board = Array(8).fill(null).map((_, r) => 
+      return Array(8).fill(null).map((_, r) => 
         Array(8).fill(null).map((_, c) => {
           if ((r + c) % 2 === 1) {
             if (r < 3) return 2; // Black pieces at top
@@ -64,10 +61,14 @@ export class MemStorage implements IStorage {
           return 0;
         })
       );
-    } else {
-      // Default Connect 4: 6 rows, 7 cols
-      board = Array(6).fill(null).map(() => Array(7).fill(0));
     }
+    // Default Connect 4: 6 rows, 7 cols
+    return Array(6).fill(null).map(() => Array(7).fill(0));
+  }
+
+  async createGame(p1: string, p2: string, gameType: string, isCpu: boolean = false, difficulty: string = 'easy'): Promise<Game> {
+    const id = this.gameIdCounter++;
+    const board = this.createInitialBoard(gameType);
 
     const game: Game = {
       id,

@@ -53,17 +53,34 @@ export function useGameSocket() {
   const handleMessage = useCallback((message: WsMessage) => {
     switch (message.type) {
       case 'MATCH_FOUND':
-        setGameState(prev => ({
-          ...prev,
-          status: 'playing',
-          gameType: message.payload.gameType,
-          gameId: message.payload.gameId,
-          myColor: message.payload.yourColor,
-          board: message.payload.gameType === 'checkers' ? [] : Array(6).fill(0).map(() => Array(7).fill(0)),
-          turn: 1,
-          winner: null,
-          opponentConnected: true
-        }));
+        setGameState(prev => {
+          let initialBoard = null;
+          if (message.payload.gameType === 'checkers') {
+            initialBoard = Array(8).fill(null).map((_, r) => 
+              Array(8).fill(null).map((_, c) => {
+                if ((r + c) % 2 === 1) {
+                  if (r < 3) return 2;
+                  if (r > 4) return 1;
+                }
+                return 0;
+              })
+            );
+          } else {
+            initialBoard = Array(6).fill(0).map(() => Array(7).fill(0));
+          }
+
+          return {
+            ...prev,
+            status: 'playing',
+            gameType: message.payload.gameType,
+            gameId: message.payload.gameId,
+            myColor: message.payload.yourColor,
+            board: initialBoard,
+            turn: 1,
+            winner: null,
+            opponentConnected: true
+          };
+        });
         toast({
           title: "Match Found!",
           description: `Game: ${message.payload.gameType}. You are Player ${message.payload.yourColor}.`,
