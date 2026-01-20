@@ -417,8 +417,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             chessBoard[from.r][from.c] = '';
             if (moveRes.castling) {
               const r = from.r;
-              if (moveRes.castling === 'K') { chessBoard[r][5] = chessBoard[r][7]; chessBoard[r][7] = ''; }
-              else { chessBoard[r][3] = chessBoard[r][0]; chessBoard[r][0] = ''; }
+              if (moveRes.castling === 'K') {
+                chessBoard[r][5] = chessBoard[r][7];
+                chessBoard[r][7] = '';
+              } else if (moveRes.castling === 'Q') {
+                chessBoard[r][3] = chessBoard[r][0];
+                chessBoard[r][0] = '';
+              }
             }
             let nextTurn = game.turn === 'player1' ? 'player2' : 'player1';
             const nextPlayerNum = nextTurn === 'player1' ? 1 : 2;
@@ -452,8 +457,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                 
                 if (cpuMove.castling) {
                   const cr = cpuMove.from.r;
-                  if (cpuMove.castling === 'K') { cBoard[cr][5] = cBoard[cr][7]; cBoard[cr][7] = ''; }
-                  else { cBoard[cr][3] = cBoard[cr][0]; cBoard[cr][0] = ''; }
+                  if (cpuMove.castling === 'K') {
+                    cBoard[cr][5] = cBoard[cr][7];
+                    cBoard[cr][7] = '';
+                  } else if (cpuMove.castling === 'Q') {
+                    cBoard[cr][3] = cBoard[cr][0];
+                    cBoard[cr][0] = '';
+                  }
                 }
 
                 // Check for win after CPU move
