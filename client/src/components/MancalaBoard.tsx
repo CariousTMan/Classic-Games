@@ -15,11 +15,14 @@ export function MancalaBoard({ board, onMove, myTurn, myColor }: MancalaBoardPro
   // Pit 13: Player 2 Store
   
   const handlePitClick = (index: number) => {
-    console.log("Pit clicked:", index, "myTurn:", myTurn, "myColor:", myColor, "seeds:", board[index]);
     if (!myTurn) return;
     if (myColor === 1 && (index < 0 || index > 5)) return;
     if (myColor === 2 && (index < 7 || index > 12)) return;
-    if (board[index] === 0) return;
+    
+    // Safety check for board data type
+    const seeds = board[index];
+    if (typeof seeds !== 'number' || seeds === 0) return;
+    
     onMove(index);
   };
 
@@ -39,7 +42,7 @@ export function MancalaBoard({ board, onMove, myTurn, myColor }: MancalaBoardPro
           className={cn(
             "w-14 h-14 md:w-20 md:h-20 rounded-full border-4 flex items-center justify-center text-xl font-bold transition-all shadow-inner relative",
             isClickable 
-              ? "border-primary bg-primary/10 hover:bg-primary/20 cursor-pointer" 
+              ? "border-primary bg-primary/10 hover:bg-primary/20 cursor-pointer pointer-events-auto" 
               : "border-slate-200 bg-slate-100 cursor-default opacity-80",
             color === 'red' && "border-red-400 bg-red-50",
             color === 'yellow' && "border-yellow-400 bg-yellow-50",

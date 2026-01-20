@@ -74,15 +74,15 @@ export default function Game() {
               <div className="text-6xl mb-4">🔍</div>
               <h2 className="text-2xl font-bold">Finding Match...</h2>
             </div>
-          ) : board ? (
+          ) : board && Array.isArray(board) ? (
             gameType === 'checkers' ? (
-              <CheckersBoard board={board} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
+              <CheckersBoard board={board as number[][]} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
             ) : gameType === 'chess' ? (
-              <ChessBoard board={board} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
-            ) : gameType === 'mancala' ? (
-              <MancalaBoard board={board} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
+              <ChessBoard board={board as string[][]} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
+            ) : gameType === 'mancala' && !Array.isArray(board[0]) ? (
+              <MancalaBoard board={board as number[]} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
             ) : (
-              <Board board={board} onColumnClick={makeMove} myTurn={isMyTurn} disabled={status !== 'playing' || !isMyTurn} myColor={myColor as 1 | 2} />
+              <Board board={board as number[][]} onColumnClick={makeMove} myTurn={isMyTurn} disabled={status !== 'playing' || !isMyTurn} myColor={myColor as 1 | 2} />
             )
           ) : null}
         </div>
