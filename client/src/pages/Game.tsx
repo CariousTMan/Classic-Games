@@ -48,7 +48,9 @@ export default function Game() {
       <header className="w-full max-w-4xl flex items-center justify-between mb-8 arcade-card p-4">
         <Link href="/" className="flex items-center gap-2">
           <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-bold">GH</div>
-          <span className="font-display font-bold text-xl">{gameType === 'checkers' ? 'Checkers' : 'Connect Four'}</span>
+          <span className="font-display font-bold text-xl">
+            {gameType === 'checkers' ? 'Checkers' : gameType === 'chess' ? 'Chess' : 'Connect Four'}
+          </span>
         </Link>
         <StatusBadge connected={connected} gameStatus={status} />
       </header>

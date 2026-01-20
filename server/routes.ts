@@ -201,7 +201,7 @@ function getChessCpuMove(board: string[][], metadata: any = {}): any {
       if (piece !== '' && piece === piece.toLowerCase()) {
         for (let tr = 0; tr < 8; tr++) {
           for (let tc = 0; tc < 8; tc++) {
-            const res = isValidChessMove(board, { r, c }, { r: tr, tc }, 2, metadata);
+            const res = isValidChessMove(board, { r, c }, { r: tr, c: tc }, 2, metadata);
             if (res.valid) moves.push({ from: { r, c }, to: { r: tr, c: tc }, castling: res.castling });
           }
         }
@@ -211,6 +211,70 @@ function getChessCpuMove(board: string[][], metadata: any = {}): any {
   if (moves.length === 0) return null;
   const captures = moves.filter(m => board[m.to.r][m.to.c] !== '');
   return captures.length > 0 ? captures[Math.floor(Math.random() * captures.length)] : moves[Math.floor(Math.random() * moves.length)];
+}
+
+function isSquareAttacked(board: string[][], r: number, c: number, attackerPlayerNum: number): boolean {
+  for (let ir = 0; ir < 8; ir++) {
+    for (let ic = 0; ic < 8; ic++) {
+      const piece = board[ir][ic];
+      if (piece !== '') {
+        const isWhite = piece === piece.toUpperCase();
+        const piecePlayer = isWhite ? 1 : 2;
+        if (piecePlayer === attackerPlayerNum) {
+          if (isValidChessMove(board, { r: ir, c: ic }, { r, c }, attackerPlayerNum).valid) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+function findKing(board: string[][], playerNum: number): { r: number, c: number } | null {
+  const kingChar = playerNum === 1 ? 'K' : 'k';
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      if (board[r][c] === kingChar) return { r, c };
+    }
+  }
+  return null;
+}
+
+function isInCheck(board: string[][], playerNum: number): boolean {
+  const kingPos = findKing(board, playerNum);
+  if (!kingPos) return false;
+  return isSquareAttacked(board, kingPos.r, kingPos.c, playerNum === 1 ? 2 : 1);
+}
+
+function hasLegalMoves(board: string[][], playerNum: number, metadata: any): boolean {
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const piece = board[r][c];
+      if (piece === '') continue;
+      const isWhite = piece === piece.toUpperCase();
+      if ((playerNum === 1 && isWhite) || (playerNum === 2 && !isWhite)) {
+        for (let tr = 0; tr < 8; tr++) {
+          for (let tc = 0; tc < 8; tc++) {
+            const moveRes = isValidChessMove(board, { r, c }, { r: tr, c: tc }, playerNum, metadata);
+            if (moveRes.valid) {
+              // Simulate move
+              const tempBoard = board.map(row => [...row]);
+              tempBoard[tr][tc] = tempBoard[r][c];
+              tempBoard[r][c] = '';
+              if (moveRes.castling) {
+                const row = r;
+                if (moveRes.castling === 'K') { tempBoard[row][5] = tempBoard[row][7]; tempBoard[row][7] = ''; }
+                else { tempBoard[row][3] = tempBoard[row][0]; tempBoard[row][0] = ''; }
+              }
+              if (!isInCheck(tempBoard, playerNum)) return true;
+            }
+          }
+        }
+      }
+    }
+  }
+  return false;
 }
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
@@ -357,23 +421,58 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               else { chessBoard[r][3] = chessBoard[r][0]; chessBoard[r][0] = ''; }
             }
             let nextTurn = game.turn === 'player1' ? 'player2' : 'player1';
-            await storage.updateGame(gameId, chessBoard, nextTurn, 'playing', null);
-            notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: chessBoard, turn: nextTurn === 'player1' ? 1 : 2 } }));
-            if (game.isCpu && nextTurn === 'player2') {
+            const nextPlayerNum = nextTurn === 'player1' ? 1 : 2;
+
+            let status = 'playing';
+            let winnerId = null;
+
+            if (!hasLegalMoves(chessBoard, nextPlayerNum, newMetadata)) {
+              status = 'finished';
+              if (isInCheck(chessBoard, nextPlayerNum)) {
+                winnerId = playerNum === 1 ? game.player1Id : game.player2Id;
+              } else {
+                winnerId = 'draw';
+              }
+            }
+
+            await storage.updateGame(gameId, chessBoard, nextTurn, status, winnerId);
+            notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: chessBoard, turn: nextPlayerNum } }));
+            
+            if (status === 'finished') {
+              notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winnerId === 'draw' ? 'draw' : playerNum, board: chessBoard } }));
+            } else if (game.isCpu && nextTurn === 'player2') {
               setTimeout(async () => {
                 const cpuMove = getChessCpuMove(chessBoard, newMetadata);
                 if (!cpuMove) return;
+
                 const cBoard = chessBoard.map(row => [...row]);
                 const cPiece = cBoard[cpuMove.from.r][cpuMove.from.c];
                 cBoard[cpuMove.to.r][cpuMove.to.c] = cPiece;
                 cBoard[cpuMove.from.r][cpuMove.from.c] = '';
+                
                 if (cpuMove.castling) {
                   const cr = cpuMove.from.r;
                   if (cpuMove.castling === 'K') { cBoard[cr][5] = cBoard[cr][7]; cBoard[cr][7] = ''; }
                   else { cBoard[cr][3] = cBoard[cr][0]; cBoard[cr][0] = ''; }
                 }
-                await storage.updateGame(gameId, cBoard, 'player1', 'playing', null);
+
+                // Check for win after CPU move
+                let cStatus = 'playing';
+                let cWinnerId = null;
+                if (!hasLegalMoves(cBoard, 1, newMetadata)) {
+                  cStatus = 'finished';
+                  if (isInCheck(cBoard, 1)) {
+                    cWinnerId = 'cpu';
+                  } else {
+                    cWinnerId = 'draw';
+                  }
+                }
+
+                await storage.updateGame(gameId, cBoard, 'player1', cStatus, cWinnerId);
                 notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: cBoard, turn: 1 } }));
+                if (cStatus === 'finished') {
+                  notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: cWinnerId === 'draw' ? 'draw' : 2, board: cBoard } }));
+                }
               }, 500);
             }
           }
