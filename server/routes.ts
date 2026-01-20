@@ -164,8 +164,9 @@ function isValidChessMove(board: string[][], from: { r: number, c: number }, to:
       if (absDr !== absDc && dr !== 0 && dc !== 0) return { valid: false };
       return { valid: isPathClear(board, from, to) };
     case 'K':
+      // Castling logic
       if (dr === 0 && absDc === 2) {
-        const rights = metadata?.castlingRights || {};
+        const rights = metadata?.castlingRights || { wK: true, wQ: true, bK: true, bQ: true };
         const r = from.r;
         if (isWhite && r === 7) {
           if (to.c === 6 && rights.wK && board[r][5] === '' && board[r][6] === '') return { valid: true, castling: 'K' };
@@ -410,8 +411,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             if (movingPiece === 'R' && from.r === 7 && from.c === 0) newMetadata.castlingRights.wQ = false;
             if (movingPiece === 'r' && from.r === 0 && from.c === 7) newMetadata.castlingRights.bK = false;
             if (movingPiece === 'r' && from.r === 0 && from.c === 0) newMetadata.castlingRights.bQ = false;
+            
             const moveRes = isValidChessMove(board, from, to, playerNum, newMetadata);
             if (!moveRes.valid) { ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Invalid chess move" } })); return; }
+            
+            // Check if move would leave king in check (including castling path)
+            const tempBoard = board.map(row => [...row]);
+            tempBoard[to.r][to.c] = tempBoard[from.r][from.c];
+            tempBoard[from.r][from.c] = '';
+            if (moveRes.castling) {
+              const r = from.r;
+              const enemy = playerNum === 1 ? 2 : 1;
+              // King cannot castle out of, through, or into check
+              if (isInCheck(board, playerNum)) { ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Cannot castle out of check" } })); return; }
+              const stepC = moveRes.castling === 'K' ? 5 : 3;
+              const stepBoard = board.map(row => [...row]);
+              stepBoard[r][stepC] = stepBoard[r][from.c];
+              stepBoard[r][from.c] = '';
+              if (isInCheck(stepBoard, playerNum)) { ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Cannot castle through check" } })); return; }
+            }
+            if (isInCheck(tempBoard, playerNum)) { ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Move would leave king in check" } })); return; }
+
             const chessBoard = board.map(row => [...row]);
             chessBoard[to.r][to.c] = chessBoard[from.r][from.c];
             chessBoard[from.r][from.c] = '';
