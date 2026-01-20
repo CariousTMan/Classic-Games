@@ -422,7 +422,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             if (isInCheck(tempBoard, playerNum)) { ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Move would leave king in check" } })); return; }
 
             const chessBoard = board.map(row => [...row]);
-            chessBoard[to.r][to.c] = chessBoard[from.r][from.c];
+            let pieceToMove = chessBoard[from.r][from.c];
+            
+            // Pawn Promotion (Auto-promote to Queen for simplicity)
+            if (pieceToMove === 'P' && to.r === 0) pieceToMove = 'Q';
+            if (pieceToMove === 'p' && to.r === 7) pieceToMove = 'q';
+            
+            chessBoard[to.r][to.c] = pieceToMove;
             chessBoard[from.r][from.c] = '';
             
             if (movingPiece === 'K') { newMetadata.castlingRights.wK = false; newMetadata.castlingRights.wQ = false; }
@@ -455,7 +461,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                 const cpuMove = getChessCpuMove(chessBoard, newMetadata);
                 if (!cpuMove) return;
                 const cBoard = chessBoard.map(row => [...row]);
-                const cPiece = cBoard[cpuMove.from.r][cpuMove.from.c];
+                let cPiece = cBoard[cpuMove.from.r][cpuMove.from.c];
+                
+                // CPU Pawn Promotion
+                if (cPiece === 'p' && cpuMove.to.r === 7) cPiece = 'q';
+                
                 cBoard[cpuMove.to.r][cpuMove.to.c] = cPiece;
                 cBoard[cpuMove.from.r][cpuMove.from.c] = '';
                 if (cpuMove.castling) {
