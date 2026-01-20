@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { Gamepad2, Users, Cpu, ArrowLeft, Grid3X3, CircleDot } from "lucide-react";
+import { Gamepad2, Users, ArrowLeft, Grid3X3, CircleDot } from "lucide-react";
 import { useState } from "react";
 
 export default function Home() {
@@ -52,6 +52,9 @@ export default function Home() {
                   </Button>
                   <Button variant="outline" onClick={() => { setSelectedGame('checkers'); setMenuState('cpu-difficulty'); }} className="h-20 text-lg border-2">
                     <CircleDot className="mr-3 w-6 h-6" /> Checkers
+                  </Button>
+                  <Button variant="outline" onClick={() => { setSelectedGame('mancala'); setMenuState('cpu-difficulty'); }} className="h-20 text-lg border-2">
+                    <div className="mr-3 w-6 h-6 flex items-center justify-center text-2xl">🕳️</div> Mancala
                   </Button>
                   <Button variant="outline" onClick={() => { setSelectedGame('chess'); setMenuState('cpu-difficulty'); }} className="h-20 text-lg border-2">
                     <div className="mr-3 w-6 h-6 flex items-center justify-center font-bold">♟</div> Chess

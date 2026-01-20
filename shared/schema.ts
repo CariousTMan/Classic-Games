@@ -5,7 +5,7 @@ import { z } from "zod";
 // We'll store game history in the DB, but active game state will be in memory for speed
 export const games = pgTable("games", {
   id: serial("id").primaryKey(),
-  gameType: text("game_type").notNull().default("connect4"), // 'connect4', 'checkers'
+  gameType: text("game_type").notNull().default("connect4"), // 'connect4', 'checkers', 'chess', 'mancala'
   player1Id: text("player1_id").notNull(),
   player2Id: text("player2_id").notNull(), // Will be 'cpu' for CPU games
   winnerId: text("winner_id"),

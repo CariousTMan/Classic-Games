@@ -3,6 +3,7 @@ import { useGameSocket } from "@/hooks/use-game-socket";
 import { Board } from "@/components/Board";
 import { CheckersBoard } from "@/components/CheckersBoard";
 import { ChessBoard } from "@/components/ChessBoard";
+import { MancalaBoard } from "@/components/MancalaBoard";
 import { PlayerCard } from "@/components/PlayerCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -78,6 +79,8 @@ export default function Game() {
               <CheckersBoard board={board} onMove={makeMove} myTurn={isMyTurn} myColor={myColor} />
             ) : gameType === 'chess' ? (
               <ChessBoard board={board} onMove={makeMove} myTurn={isMyTurn} myColor={myColor} />
+            ) : gameType === 'mancala' ? (
+              <MancalaBoard board={board} onMove={makeMove} myTurn={isMyTurn} myColor={myColor} />
             ) : (
               <Board board={board} onColumnClick={makeMove} myTurn={isMyTurn} disabled={status !== 'playing' || !isMyTurn} myColor={myColor} />
             )

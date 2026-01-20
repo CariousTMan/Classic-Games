@@ -76,6 +76,11 @@ export class MemStorage implements IStorage {
           return '';
         })
       );
+    } else if (gameType === 'mancala') {
+      // Mancala board: [p1_pits (6), p1_store (1), p2_pits (6), p2_store (1)]
+      // Pits 0-5: Player 1, Pit 6: Player 1 Store
+      // Pits 7-12: Player 2, Pit 13: Player 2 Store
+      return Array(14).fill(4).map((v, i) => (i === 6 || i === 13) ? 0 : 4);
     }
     // Default Connect 4: 6 rows, 7 cols
     return Array(6).fill(null).map(() => Array(7).fill(0));

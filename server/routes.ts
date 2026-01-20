@@ -121,6 +121,70 @@ function getConnect4CpuMove(board: number[][], difficulty: string): number {
   return validCols[Math.floor(Math.random() * validCols.length)];
 }
 
+// Mancala Logic Helpers
+function isValidMancalaMove(board: number[], pitIndex: number, playerNum: number): boolean {
+  if (playerNum === 1 && (pitIndex < 0 || pitIndex > 5)) return false;
+  if (playerNum === 2 && (pitIndex < 7 || pitIndex > 12)) return false;
+  return board[pitIndex] > 0;
+}
+
+function makeMancalaMove(board: number[], pitIndex: number, playerNum: number): { board: number[], nextTurn: number, gameOver: boolean } {
+  let seeds = board[pitIndex];
+  const newBoard = [...board];
+  newBoard[pitIndex] = 0;
+  
+  let currentPit = pitIndex;
+  while (seeds > 0) {
+    currentPit = (currentPit + 1) % 14;
+    // Skip opponent's store
+    if (playerNum === 1 && currentPit === 13) continue;
+    if (playerNum === 2 && currentPit === 6) continue;
+    
+    newBoard[currentPit]++;
+    seeds--;
+  }
+  
+  // Extra turn if last seed in own store
+  let nextTurn = playerNum === 1 ? 2 : 1;
+  if (playerNum === 1 && currentPit === 6) nextTurn = 1;
+  if (playerNum === 2 && currentPit === 13) nextTurn = 2;
+  
+  // Capture logic
+  if (newBoard[currentPit] === 1 && seeds === 0) {
+    const isOwnPit = playerNum === 1 ? (currentPit >= 0 && currentPit <= 5) : (currentPit >= 7 && currentPit <= 12);
+    if (isOwnPit) {
+      const oppositePit = 12 - currentPit;
+      if (newBoard[oppositePit] > 0) {
+        const capturedSeeds = newBoard[oppositePit] + 1;
+        newBoard[oppositePit] = 0;
+        newBoard[currentPit] = 0;
+        if (playerNum === 1) newBoard[6] += capturedSeeds;
+        else newBoard[13] += capturedSeeds;
+      }
+    }
+  }
+  
+  // Check game over
+  const p1Empty = newBoard.slice(0, 6).every(p => p === 0);
+  const p2Empty = newBoard.slice(7, 13).every(p => p === 0);
+  let gameOver = false;
+  if (p1Empty || p2Empty) {
+    gameOver = true;
+    // Move remaining seeds to stores
+    for (let i = 0; i < 6; i++) { newBoard[6] += newBoard[i]; newBoard[i] = 0; }
+    for (let i = 7; i < 13; i++) { newBoard[13] += newBoard[i]; newBoard[i] = 0; }
+  }
+  
+  return { board: newBoard, nextTurn, gameOver };
+}
+
+function getMancalaCpuMove(board: number[]): number {
+  const validPits = [];
+  for (let i = 7; i <= 12; i++) if (board[i] > 0) validPits.push(i);
+  // Easy AI: random move
+  return validPits[Math.floor(Math.random() * validPits.length)];
+}
+
 // Chess Logic Helpers
 function isValidChessMove(board: string[][], from: { r: number, c: number }, to: { r: number, c: number }, playerNum: number, metadata: any = {}): { valid: boolean, castling?: 'K' | 'Q' } {
   const piece = board[from.r][from.c];
@@ -485,9 +549,54 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                 if (cStatus === 'finished') notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: cWinnerId === 'draw' ? 'draw' : 2, board: cBoard } }));
               }, 500);
             }
+            } else if (game.gameType === 'mancala') {
+              const pitIndex = move;
+              const board = game.board as number[];
+              const playerNum = isPlayer1 ? 1 : 2;
+              if (!isValidMancalaMove(board, pitIndex, playerNum)) return;
+              
+              const { board: newBoard, nextTurn, gameOver } = makeMancalaMove(board, pitIndex, playerNum);
+              let status = gameOver ? 'finished' : 'playing';
+              let winnerId = null;
+              if (gameOver) {
+                if (newBoard[6] > newBoard[13]) winnerId = game.player1Id;
+                else if (newBoard[13] > newBoard[6]) winnerId = game.player2Id;
+                else winnerId = 'draw';
+              }
+              
+              const nextTurnStr = nextTurn === 1 ? 'player1' : 'player2';
+              await storage.updateGame(gameId, newBoard, nextTurnStr, status, winnerId);
+              notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: nextTurn } }));
+              
+              if (status === 'finished') {
+                const winnerNum = winnerId === 'draw' ? 'draw' : (winnerId === game.player1Id ? 1 : 2);
+                notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winnerNum, board: newBoard } }));
+              } else if (game.isCpu && nextTurn === 2) {
+                setTimeout(async () => {
+                  const currentBoard = (await storage.getGame(gameId))?.board as number[];
+                  if (!currentBoard) return;
+                  const cpuPit = getMancalaCpuMove(currentBoard);
+                  const cpuRes = makeMancalaMove(currentBoard, cpuPit, 2);
+                  
+                  let cStatus = cpuRes.gameOver ? 'finished' : 'playing';
+                  let cWinnerId = null;
+                  if (cpuRes.gameOver) {
+                    if (cpuRes.board[6] > cpuRes.board[13]) cWinnerId = game.player1Id;
+                    else if (cpuRes.board[13] > cpuRes.board[6]) cWinnerId = 'cpu';
+                    else cWinnerId = 'draw';
+                  }
+                  
+                  await storage.updateGame(gameId, cpuRes.board, cpuRes.nextTurn === 1 ? 'player1' : 'player2', cStatus, cWinnerId);
+                  notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: cpuRes.board, turn: cpuRes.nextTurn } }));
+                  if (cStatus === 'finished') {
+                    const cWinnerNum = cWinnerId === 'draw' ? 'draw' : (cWinnerId === 'cpu' ? 2 : 1);
+                    notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: cWinnerNum, board: cpuRes.board } }));
+                  }
+                }, 1000);
+              }
+            }
           }
-        }
-      } catch (err) { console.error("WS Message Error:", err); }
+        } catch (err) { console.error("WS Message Error:", err); }
     });
 
     ws.on('close', async () => {
