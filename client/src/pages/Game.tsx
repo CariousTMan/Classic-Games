@@ -44,13 +44,23 @@ export default function Game() {
   const gameOverInfo = getGameOverMessage();
   const isMyTurn = status === 'playing' && turn === myColor;
 
+  const getGameTitle = () => {
+    const type = gameType || searchParams.get('type');
+    switch (type) {
+      case 'checkers': return 'Checkers';
+      case 'chess': return 'Chess';
+      case 'mancala': return 'Mancala';
+      default: return 'Connect Four';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8 flex flex-col items-center">
       <header className="w-full max-w-4xl flex items-center justify-between mb-8 arcade-card p-4">
         <Link href="/" className="flex items-center gap-2">
           <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-bold">GH</div>
           <span className="font-display font-bold text-xl">
-            {gameType === 'checkers' ? 'Checkers' : gameType === 'chess' ? 'Chess' : 'Connect Four'}
+            {getGameTitle()}
           </span>
         </Link>
         <StatusBadge connected={connected} gameStatus={status} />
