@@ -15,6 +15,7 @@ export function MancalaBoard({ board, onMove, myTurn, myColor }: MancalaBoardPro
   // Pit 13: Player 2 Store
   
   const handlePitClick = (index: number) => {
+    console.log("Pit clicked:", index, "myTurn:", myTurn, "myColor:", myColor, "seeds:", board[index]);
     if (!myTurn) return;
     if (myColor === 1 && (index < 0 || index > 5)) return;
     if (myColor === 2 && (index < 7 || index > 12)) return;
@@ -24,10 +25,10 @@ export function MancalaBoard({ board, onMove, myTurn, myColor }: MancalaBoardPro
 
   const Pit = ({ index, color }: { index: number, color: 'red' | 'yellow' }) => {
     const seeds = board[index];
-    const isClickable = myTurn && (
-      (myColor === 1 && index >= 0 && index <= 5) || 
-      (myColor === 2 && index >= 7 && index <= 12)
-    ) && seeds > 0;
+    // Check if it's the player's own pit
+    const isOwnPit = (myColor === 1 && index >= 0 && index <= 5) || 
+                     (myColor === 2 && index >= 7 && index <= 12);
+    const isClickable = myTurn && isOwnPit && seeds > 0;
     
     return (
       <div className="flex flex-col items-center gap-1">
@@ -35,12 +36,11 @@ export function MancalaBoard({ board, onMove, myTurn, myColor }: MancalaBoardPro
           whileHover={isClickable ? { scale: 1.05 } : {}}
           whileTap={isClickable ? { scale: 0.95 } : {}}
           onClick={() => handlePitClick(index)}
-          disabled={!isClickable}
           className={cn(
             "w-14 h-14 md:w-20 md:h-20 rounded-full border-4 flex items-center justify-center text-xl font-bold transition-all shadow-inner relative",
             isClickable 
               ? "border-primary bg-primary/10 hover:bg-primary/20 cursor-pointer" 
-              : "border-slate-200 bg-slate-100 cursor-not-allowed",
+              : "border-slate-200 bg-slate-100 cursor-default opacity-80",
             color === 'red' && "border-red-400 bg-red-50",
             color === 'yellow' && "border-yellow-400 bg-yellow-50",
             isClickable && color === 'red' && "hover:bg-red-100",
