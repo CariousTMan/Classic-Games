@@ -164,16 +164,15 @@ function isValidChessMove(board: string[][], from: { r: number, c: number }, to:
       if (absDr !== absDc && dr !== 0 && dc !== 0) return { valid: false };
       return { valid: isPathClear(board, from, to) };
     case 'K':
-      // Castling logic
       if (dr === 0 && absDc === 2) {
         const rights = metadata?.castlingRights || { wK: true, wQ: true, bK: true, bQ: true };
         const r = from.r;
         if (isWhite && r === 7) {
-          if (to.c === 6 && rights.wK && board[r][5] === '' && board[r][6] === '') return { valid: true, castling: 'K' };
-          if (to.c === 2 && rights.wQ && board[r][1] === '' && board[r][2] === '' && board[r][3] === '') return { valid: true, castling: 'Q' };
+          if (to.c === 6 && rights.wK && board[r][5] === '' && board[r][6] === '' && board[r][7].toUpperCase() === 'R') return { valid: true, castling: 'K' };
+          if (to.c === 2 && rights.wQ && board[r][1] === '' && board[r][2] === '' && board[r][3] === '' && board[r][0].toUpperCase() === 'R') return { valid: true, castling: 'Q' };
         } else if (!isWhite && r === 0) {
-          if (to.c === 6 && rights.bK && board[r][5] === '' && board[r][6] === '') return { valid: true, castling: 'K' };
-          if (to.c === 2 && rights.bQ && board[r][1] === '' && board[r][2] === '' && board[r][3] === '') return { valid: true, castling: 'Q' };
+          if (to.c === 6 && rights.bK && board[r][5] === '' && board[r][6] === '' && board[r][7].toUpperCase() === 'R') return { valid: true, castling: 'K' };
+          if (to.c === 2 && rights.bQ && board[r][1] === '' && board[r][2] === '' && board[r][3] === '' && board[r][0].toUpperCase() === 'R') return { valid: true, castling: 'Q' };
         }
       }
       return { valid: absDr <= 1 && absDc <= 1 };
@@ -259,7 +258,6 @@ function hasLegalMoves(board: string[][], playerNum: number, metadata: any): boo
           for (let tc = 0; tc < 8; tc++) {
             const moveRes = isValidChessMove(board, { r, c }, { r: tr, c: tc }, playerNum, metadata);
             if (moveRes.valid) {
-              // Simulate move
               const tempBoard = board.map(row => [...row]);
               tempBoard[tr][tc] = tempBoard[r][c];
               tempBoard[r][c] = '';
@@ -405,104 +403,76 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             const newMetadata = { ...(game.metadata as any) || {} };
             if (!newMetadata.castlingRights) newMetadata.castlingRights = { wK: true, wQ: true, bK: true, bQ: true };
             const movingPiece = board[from.r][from.c];
+            
+            const moveRes = isValidChessMove(board, from, to, playerNum, newMetadata);
+            if (!moveRes.valid) { ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Invalid chess move" } })); return; }
+            
+            if (moveRes.castling) {
+              if (isInCheck(board, playerNum)) { ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Cannot castle out of check" } })); return; }
+              const stepC = moveRes.castling === 'K' ? 5 : 3;
+              const stepBoard = board.map(row => [...row]);
+              stepBoard[from.r][stepC] = stepBoard[from.r][from.c];
+              stepBoard[from.r][from.c] = '';
+              if (isInCheck(stepBoard, playerNum)) { ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Cannot castle through check" } })); return; }
+            }
+            
+            const tempBoard = board.map(row => [...row]);
+            tempBoard[to.r][to.c] = tempBoard[from.r][from.c];
+            tempBoard[from.r][from.c] = '';
+            if (isInCheck(tempBoard, playerNum)) { ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Move would leave king in check" } })); return; }
+
+            const chessBoard = board.map(row => [...row]);
+            chessBoard[to.r][to.c] = chessBoard[from.r][from.c];
+            chessBoard[from.r][from.c] = '';
+            
             if (movingPiece === 'K') { newMetadata.castlingRights.wK = false; newMetadata.castlingRights.wQ = false; }
             if (movingPiece === 'k') { newMetadata.castlingRights.bK = false; newMetadata.castlingRights.bQ = false; }
             if (movingPiece === 'R' && from.r === 7 && from.c === 7) newMetadata.castlingRights.wK = false;
             if (movingPiece === 'R' && from.r === 7 && from.c === 0) newMetadata.castlingRights.wQ = false;
             if (movingPiece === 'r' && from.r === 0 && from.c === 7) newMetadata.castlingRights.bK = false;
             if (movingPiece === 'r' && from.r === 0 && from.c === 0) newMetadata.castlingRights.bQ = false;
-            
-            const moveRes = isValidChessMove(board, from, to, playerNum, newMetadata);
-            if (!moveRes.valid) { ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Invalid chess move" } })); return; }
-            
-            // Check if move would leave king in check (including castling path)
-            const tempBoard = board.map(row => [...row]);
-            tempBoard[to.r][to.c] = tempBoard[from.r][from.c];
-            tempBoard[from.r][from.c] = '';
-            if (moveRes.castling) {
-              const r = from.r;
-              const enemy = playerNum === 1 ? 2 : 1;
-              // King cannot castle out of, through, or into check
-              if (isInCheck(board, playerNum)) { ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Cannot castle out of check" } })); return; }
-              const stepC = moveRes.castling === 'K' ? 5 : 3;
-              const stepBoard = board.map(row => [...row]);
-              stepBoard[r][stepC] = stepBoard[r][from.c];
-              stepBoard[r][from.c] = '';
-              if (isInCheck(stepBoard, playerNum)) { ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Cannot castle through check" } })); return; }
-            }
-            if (isInCheck(tempBoard, playerNum)) { ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Move would leave king in check" } })); return; }
 
-            const chessBoard = board.map(row => [...row]);
-            chessBoard[to.r][to.c] = chessBoard[from.r][from.c];
-            chessBoard[from.r][from.c] = '';
             if (moveRes.castling) {
               const r = from.r;
-              if (moveRes.castling === 'K') {
-                chessBoard[r][5] = chessBoard[r][7];
-                chessBoard[r][7] = '';
-              } else if (moveRes.castling === 'Q') {
-                chessBoard[r][3] = chessBoard[r][0];
-                chessBoard[r][0] = '';
-              }
+              if (moveRes.castling === 'K') { chessBoard[r][5] = chessBoard[r][7]; chessBoard[r][7] = ''; }
+              else if (moveRes.castling === 'Q') { chessBoard[r][3] = chessBoard[r][0]; chessBoard[r][0] = ''; }
             }
+            
             let nextTurn = game.turn === 'player1' ? 'player2' : 'player1';
             const nextPlayerNum = nextTurn === 'player1' ? 1 : 2;
-
             let status = 'playing';
             let winnerId = null;
-
             if (!hasLegalMoves(chessBoard, nextPlayerNum, newMetadata)) {
               status = 'finished';
-              if (isInCheck(chessBoard, nextPlayerNum)) {
-                winnerId = playerNum === 1 ? game.player1Id : game.player2Id;
-              } else {
-                winnerId = 'draw';
-              }
+              if (isInCheck(chessBoard, nextPlayerNum)) winnerId = playerNum === 1 ? game.player1Id : game.player2Id;
+              else winnerId = 'draw';
             }
-
             await storage.updateGame(gameId, chessBoard, nextTurn, status, winnerId);
             notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: chessBoard, turn: nextPlayerNum } }));
-            
-            if (status === 'finished') {
-              notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winnerId === 'draw' ? 'draw' : playerNum, board: chessBoard } }));
-            } else if (game.isCpu && nextTurn === 'player2') {
+            if (status === 'finished') notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winnerId === 'draw' ? 'draw' : playerNum, board: chessBoard } }));
+            else if (game.isCpu && nextTurn === 'player2') {
               setTimeout(async () => {
                 const cpuMove = getChessCpuMove(chessBoard, newMetadata);
                 if (!cpuMove) return;
-
                 const cBoard = chessBoard.map(row => [...row]);
                 const cPiece = cBoard[cpuMove.from.r][cpuMove.from.c];
                 cBoard[cpuMove.to.r][cpuMove.to.c] = cPiece;
                 cBoard[cpuMove.from.r][cpuMove.from.c] = '';
-                
                 if (cpuMove.castling) {
                   const cr = cpuMove.from.r;
-                  if (cpuMove.castling === 'K') {
-                    cBoard[cr][5] = cBoard[cr][7];
-                    cBoard[cr][7] = '';
-                  } else if (cpuMove.castling === 'Q') {
-                    cBoard[cr][3] = cBoard[cr][0];
-                    cBoard[cr][0] = '';
-                  }
+                  if (cpuMove.castling === 'K') { cBoard[cr][5] = cBoard[cr][7]; cBoard[cr][7] = ''; }
+                  else if (cpuMove.castling === 'Q') { cBoard[cr][3] = cBoard[cr][0]; cBoard[cr][0] = ''; }
                 }
-
-                // Check for win after CPU move
                 let cStatus = 'playing';
                 let cWinnerId = null;
                 if (!hasLegalMoves(cBoard, 1, newMetadata)) {
                   cStatus = 'finished';
-                  if (isInCheck(cBoard, 1)) {
-                    cWinnerId = 'cpu';
-                  } else {
-                    cWinnerId = 'draw';
-                  }
+                  if (isInCheck(cBoard, 1)) cWinnerId = 'cpu';
+                  else cWinnerId = 'draw';
                 }
-
                 await storage.updateGame(gameId, cBoard, 'player1', cStatus, cWinnerId);
                 notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: cBoard, turn: 1 } }));
-                if (cStatus === 'finished') {
-                  notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: cWinnerId === 'draw' ? 'draw' : 2, board: cBoard } }));
-                }
+                if (cStatus === 'finished') notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: cWinnerId === 'draw' ? 'draw' : 2, board: cBoard } }));
               }, 500);
             }
           }
