@@ -28,17 +28,17 @@ export class MemStorage implements IStorage {
   }
 
   removeFromQueue(userId: string): void {
-    for (const queue of this.queues.values()) {
+    this.queues.forEach(queue => {
       queue.delete(userId);
-    }
+    });
   }
 
   findMatch(gameType: string): { p1: string; p2: string } | null {
     const queue = this.queues.get(gameType);
     if (queue && queue.size >= 2) {
-      const it = queue.values();
-      const p1 = it.next().value;
-      const p2 = it.next().value;
+      const values = Array.from(queue.values());
+      const p1 = values[0];
+      const p2 = values[1];
       if (p1 && p2) {
         queue.delete(p1);
         queue.delete(p2);

@@ -76,13 +76,13 @@ export default function Game() {
             </div>
           ) : board ? (
             gameType === 'checkers' ? (
-              <CheckersBoard board={board} onMove={makeMove} myTurn={isMyTurn} myColor={myColor} />
+              <CheckersBoard board={board} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
             ) : gameType === 'chess' ? (
-              <ChessBoard board={board} onMove={makeMove} myTurn={isMyTurn} myColor={myColor} />
+              <ChessBoard board={board} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
             ) : gameType === 'mancala' ? (
-              <MancalaBoard board={board} onMove={makeMove} myTurn={isMyTurn} myColor={myColor} />
+              <MancalaBoard board={board} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
             ) : (
-              <Board board={board} onColumnClick={makeMove} myTurn={isMyTurn} disabled={status !== 'playing' || !isMyTurn} myColor={myColor} />
+              <Board board={board} onColumnClick={makeMove} myTurn={isMyTurn} disabled={status !== 'playing' || !isMyTurn} myColor={myColor as 1 | 2} />
             )
           ) : null}
         </div>
