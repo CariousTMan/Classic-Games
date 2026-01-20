@@ -123,9 +123,9 @@ function getConnect4CpuMove(board: number[][], difficulty: string): number {
 
 // Mancala Logic Helpers
 function isValidMancalaMove(board: number[], pitIndex: number, playerNum: number): boolean {
-  if (playerNum === 1 && (pitIndex < 0 || pitIndex > 5)) return false;
-  if (playerNum === 2 && (pitIndex < 7 || pitIndex > 12)) return false;
-  return board[pitIndex] > 0;
+  if (playerNum === 1) return pitIndex >= 0 && pitIndex <= 5 && board[pitIndex] > 0;
+  if (playerNum === 2) return pitIndex >= 7 && pitIndex <= 12 && board[pitIndex] > 0;
+  return false;
 }
 
 function makeMancalaMove(board: number[], pitIndex: number, playerNum: number): { board: number[], nextTurn: number, gameOver: boolean } {

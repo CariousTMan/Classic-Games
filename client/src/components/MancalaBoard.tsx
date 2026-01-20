@@ -9,9 +9,11 @@ interface MancalaBoardProps {
 }
 
 export function MancalaBoard({ board, onMove, myTurn, myColor }: MancalaBoardProps) {
+  // Pits 0-5: Player 1, Pit 6: Player 1 Store
+  // Pits 7-12: Player 2, Pit 13: Player 2 Store
   const p1Pits = board.slice(0, 6);
   const p1Store = board[6];
-  const p2Pits = board.slice(7, 13).reverse();
+  const p2Pits = board.slice(7, 13);
   const p2Store = board[13];
 
   const handlePitClick = (index: number) => {
@@ -22,27 +24,23 @@ export function MancalaBoard({ board, onMove, myTurn, myColor }: MancalaBoardPro
     onMove(index);
   };
 
-  const Pit = ({ seeds, index, label }: { seeds: number, index: number, label?: string }) => {
+  const Pit = ({ seeds, index }: { seeds: number, index: number }) => {
     const isClickable = myTurn && ((myColor === 1 && index >= 0 && index <= 5) || (myColor === 2 && index >= 7 && index <= 12)) && seeds > 0;
     
     return (
-      <div className="flex flex-col items-center gap-1">
-        {label && <span className="text-[10px] font-bold text-muted-foreground uppercase">{label}</span>}
-        <motion.button
-          whileHover={isClickable ? { scale: 1.05 } : {}}
-          whileTap={isClickable ? { scale: 0.95 } : {}}
-          onClick={() => handlePitClick(index)}
-          disabled={!isClickable}
-          className={cn(
-            "w-12 h-12 md:w-16 md:h-16 rounded-full border-4 flex items-center justify-center text-xl font-bold transition-colors shadow-inner",
-            isClickable ? "border-primary bg-primary/10 hover:bg-primary/20" : "border-slate-200 bg-slate-100",
-            myColor === 1 && index <= 5 && "border-red-400 bg-red-50",
-            myColor === 2 && index >= 7 && "border-yellow-400 bg-yellow-50"
-          )}
-        >
-          {seeds}
-        </motion.button>
-      </div>
+      <motion.button
+        whileHover={isClickable ? { scale: 1.05 } : {}}
+        whileTap={isClickable ? { scale: 0.95 } : {}}
+        onClick={() => handlePitClick(index)}
+        disabled={!isClickable}
+        className={cn(
+          "w-12 h-12 md:w-16 md:h-16 rounded-full border-4 flex items-center justify-center text-xl font-bold transition-colors shadow-inner relative",
+          isClickable ? "border-primary bg-primary/10 hover:bg-primary/20" : "border-slate-200 bg-slate-100",
+          index <= 5 ? "border-red-400 bg-red-50" : "border-yellow-400 bg-yellow-50"
+        )}
+      >
+        {seeds}
+      </motion.button>
     );
   };
 
@@ -60,14 +58,18 @@ export function MancalaBoard({ board, onMove, myTurn, myColor }: MancalaBoardPro
 
   return (
     <div className="arcade-card p-6 md:p-10 flex items-center gap-4 md:gap-8 bg-amber-50">
+      {/* Player 2 (CPU) Store */}
       <Store seeds={p2Store} label="CPU" color="yellow" />
       
       <div className="flex flex-col gap-8 md:gap-12">
-        <div className="flex gap-2 md:gap-4">
+        {/* Top Row: Player 2 Pits (7-12), rendered in reverse order for correct layout */}
+        <div className="flex gap-2 md:gap-4 flex-row-reverse">
           {p2Pits.map((seeds, i) => (
-            <Pit key={`p2-${i}`} seeds={seeds} index={12 - i} />
+            <Pit key={`p2-${i}`} seeds={seeds} index={i + 7} />
           ))}
         </div>
+        
+        {/* Bottom Row: Player 1 Pits (0-5) */}
         <div className="flex gap-2 md:gap-4">
           {p1Pits.map((seeds, i) => (
             <Pit key={`p1-${i}`} seeds={seeds} index={i} />
@@ -75,6 +77,7 @@ export function MancalaBoard({ board, onMove, myTurn, myColor }: MancalaBoardPro
         </div>
       </div>
 
+      {/* Player 1 (You) Store */}
       <Store seeds={p1Store} label="You" color="red" />
     </div>
   );
