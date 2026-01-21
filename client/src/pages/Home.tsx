@@ -14,6 +14,7 @@ export default function Home() {
   };
 
   const startCpuGame = (difficulty: string) => {
+    if (!selectedGame) return;
     setLocation(`/game?mode=cpu&type=${selectedGame}&difficulty=${difficulty}`);
   };
 
