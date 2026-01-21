@@ -550,8 +550,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               }, 500);
             }
             } else if (game.gameType === 'mancala') {
-              const pitIndex = move;
-              const board = game.board as number[];
+              const pitIndex = Number(move);
+              const board = Array.isArray(game.board) ? game.board as number[] : [];
+              if (board.length === 0) return;
+              
               const playerNum = isPlayer1 ? 1 : 2;
               if (!isValidMancalaMove(board, pitIndex, playerNum)) return;
               
