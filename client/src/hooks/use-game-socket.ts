@@ -77,6 +77,8 @@ export function useGameSocket() {
                 return '';
               })
             );
+          } else if (message.payload.gameType === 'mancala') {
+            initialBoard = [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0];
           } else {
             initialBoard = Array(6).fill(0).map(() => Array(7).fill(0));
           }
