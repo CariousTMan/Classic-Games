@@ -28,10 +28,8 @@ export function MancalaBoard({ board, onMove, myTurn, myColor }: MancalaBoardPro
 
   const Pit = ({ index, color }: { index: number, color: 'red' | 'yellow' }) => {
     const seedsValue = board[index];
-    // Ensure seeds is always treated as a number
     const seeds = typeof seedsValue === 'number' ? seedsValue : 0;
     
-    // Check if it's the player's own pit
     const isOwnPit = (myColor === 1 && index >= 0 && index <= 5) || 
                      (myColor === 2 && index >= 7 && index <= 12);
     const isClickable = myTurn && isOwnPit && seeds > 0;
@@ -53,7 +51,7 @@ export function MancalaBoard({ board, onMove, myTurn, myColor }: MancalaBoardPro
             isClickable && color === 'yellow' && "hover:bg-yellow-100"
           )}
         >
-          {String(seeds)}
+          {seeds}
         </motion.button>
       </div>
     );
