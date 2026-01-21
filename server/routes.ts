@@ -512,11 +512,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             const nextPlayerNum = nextTurn === 'player1' ? 1 : 2;
             let status = 'playing';
             let winnerId = null;
+            
             if (!hasLegalMoves(chessBoard, nextPlayerNum, newMetadata)) {
               status = 'finished';
-              if (isInCheck(chessBoard, nextPlayerNum)) winnerId = playerNum === 1 ? game.player1Id : game.player2Id;
-              else winnerId = 'draw';
+              if (isInCheck(chessBoard, nextPlayerNum)) {
+                winnerId = playerNum === 1 ? game.player1Id : game.player2Id;
+              } else {
+                winnerId = 'draw';
+              }
             }
+
             await storage.updateGame(gameId, chessBoard, nextTurn, status, winnerId);
             notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: chessBoard, turn: nextPlayerNum } }));
             if (status === 'finished') notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winnerId === 'draw' ? 'draw' : playerNum, board: chessBoard } }));
@@ -526,91 +531,83 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                 if (!cpuMove) return;
                 const cBoard = chessBoard.map(row => [...row]);
                 let cPiece = cBoard[cpuMove.from.r][cpuMove.from.c];
-                
-                // CPU Pawn Promotion
                 if (cPiece === 'p' && cpuMove.to.r === 7) cPiece = 'q';
-                
                 cBoard[cpuMove.to.r][cpuMove.to.c] = cPiece;
                 cBoard[cpuMove.from.r][cpuMove.from.c] = '';
                 if (cpuMove.castling) {
-                  const cr = cpuMove.from.r;
-                  if (cpuMove.castling === 'K') { cBoard[cr][5] = cBoard[cr][7]; cBoard[cr][7] = ''; }
-                  else if (cpuMove.castling === 'Q') { cBoard[cr][3] = cBoard[cr][0]; cBoard[cr][0] = ''; }
+                  if (cpuMove.castling === 'K') { cBoard[0][5] = cBoard[0][7]; cBoard[0][7] = ''; }
+                  else { cBoard[0][3] = cBoard[0][0]; cBoard[0][0] = ''; }
                 }
                 let cStatus = 'playing';
                 let cWinnerId = null;
                 if (!hasLegalMoves(cBoard, 1, newMetadata)) {
                   cStatus = 'finished';
-                  if (isInCheck(cBoard, 1)) cWinnerId = 'cpu';
-                  else cWinnerId = 'draw';
+                  cWinnerId = isInCheck(cBoard, 1) ? 'cpu' : 'draw';
                 }
                 await storage.updateGame(gameId, cBoard, 'player1', cStatus, cWinnerId);
                 notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: cBoard, turn: 1 } }));
                 if (cStatus === 'finished') notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: cWinnerId === 'draw' ? 'draw' : 2, board: cBoard } }));
               }, 500);
             }
-            } else if (game.gameType === 'mancala') {
-              const pitIndex = Number(move);
-              const board = Array.isArray(game.board) ? game.board as number[] : [];
-              if (board.length === 0) return;
-              
-              const playerNum = isPlayer1 ? 1 : 2;
-              if (!isValidMancalaMove(board, pitIndex, playerNum)) return;
-              
-              const { board: newBoard, nextTurn, gameOver } = makeMancalaMove(board, pitIndex, playerNum);
-              let status = gameOver ? 'finished' : 'playing';
-              let winnerId = null;
-              if (gameOver) {
-                if (newBoard[6] > newBoard[13]) winnerId = game.player1Id;
-                else if (newBoard[13] > newBoard[6]) winnerId = game.player2Id;
-                else winnerId = 'draw';
-              }
-              
-              const nextTurnStr = nextTurn === 1 ? 'player1' : 'player2';
-              await storage.updateGame(gameId, newBoard, nextTurnStr, status, winnerId);
-              notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: nextTurn } }));
-              
-              if (status === 'finished') {
-                const winnerNum = winnerId === 'draw' ? 'draw' : (winnerId === game.player1Id ? 1 : 2);
-                notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winnerNum, board: newBoard } }));
-              } else if (game.isCpu && nextTurn === 2) {
+          } else if (game.gameType === 'mancala') {
+            const pitIndex = move;
+            const playerNum = isPlayer1 ? 1 : 2;
+            if (!isValidMancalaMove(game.board as number[], pitIndex, playerNum)) return;
+            const { board, nextTurn, gameOver } = makeMancalaMove(game.board as number[], pitIndex, playerNum);
+            let status = gameOver ? 'finished' : 'playing';
+            let winnerId = null;
+            if (gameOver) {
+              const p1Score = board[6];
+              const p2Score = board[13];
+              if (p1Score > p2Score) winnerId = game.player1Id;
+              else if (p2Score > p1Score) winnerId = game.player2Id;
+              else winnerId = 'draw';
+            }
+            const turnStr = nextTurn === 1 ? 'player1' : 'player2';
+            await storage.updateGame(gameId, board, turnStr, status, winnerId);
+            notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board, turn: nextTurn } }));
+            if (status === 'finished') {
+              const winner = winnerId === 'draw' ? 'draw' : (winnerId === game.player1Id ? 1 : 2);
+              notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner, board } }));
+            } else if (game.isCpu && nextTurn === 2) {
+              // Recursive CPU move function to handle extra turns
+              const executeCpuMove = async (currentBoard: number[]) => {
                 setTimeout(async () => {
-                  const currentBoard = (await storage.getGame(gameId))?.board as number[];
-                  if (!currentBoard) return;
-                  const cpuPit = getMancalaCpuMove(currentBoard);
-                  const cpuRes = makeMancalaMove(currentBoard, cpuPit, 2);
-                  
-                  let cStatus = cpuRes.gameOver ? 'finished' : 'playing';
+                  const cpuMove = getMancalaCpuMove(currentBoard);
+                  const { board: cBoard, nextTurn: cNextTurn, gameOver: cGameOver } = makeMancalaMove(currentBoard, cpuMove, 2);
+                  let cStatus = cGameOver ? 'finished' : 'playing';
                   let cWinnerId = null;
-                  if (cpuRes.gameOver) {
-                    if (cpuRes.board[6] > cpuRes.board[13]) cWinnerId = game.player1Id;
-                    else if (cpuRes.board[13] > cpuRes.board[6]) cWinnerId = 'cpu';
+                  if (cGameOver) {
+                    const p1Score = cBoard[6];
+                    const p2Score = cBoard[13];
+                    if (p1Score > p2Score) cWinnerId = game.player1Id;
+                    else if (p2Score > p1Score) cWinnerId = 'cpu';
                     else cWinnerId = 'draw';
                   }
-                  
-                  await storage.updateGame(gameId, cpuRes.board, cpuRes.nextTurn === 1 ? 'player1' : 'player2', cStatus, cWinnerId);
-                  notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: cpuRes.board, turn: cpuRes.nextTurn } }));
+                  const cTurnStr = cNextTurn === 1 ? 'player1' : 'player2';
+                  await storage.updateGame(gameId, cBoard, cTurnStr, cStatus, cWinnerId);
+                  notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: cBoard, turn: cNextTurn } }));
                   if (cStatus === 'finished') {
-                    const cWinnerNum = cWinnerId === 'draw' ? 'draw' : (cWinnerId === 'cpu' ? 2 : 1);
-                    notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: cWinnerNum, board: cpuRes.board } }));
+                    const winner = cWinnerId === 'draw' ? 'draw' : (cWinnerId === game.player1Id ? 1 : 2);
+                    notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner, board: cBoard } }));
+                  } else if (cNextTurn === 2) {
+                    // Extra turn for CPU
+                    executeCpuMove(cBoard);
                   }
                 }, 1000);
-              }
+              };
+              executeCpuMove(board);
             }
           }
-        } catch (err) { console.error("WS Message Error:", err); }
+        }
+      } catch (err) {
+        console.error('WS Error:', err);
+      }
     });
 
-    ws.on('close', async () => {
+    ws.on('close', () => {
       clients.delete(userId);
       storage.removeFromQueue(userId);
-      const game = await storage.getGameByPlayer(userId);
-      if (game && !game.isCpu) {
-        const opponentId = game.player1Id === userId ? game.player2Id : game.player1Id;
-        const opponentWs = clients.get(opponentId);
-        if (opponentWs?.readyState === WebSocket.OPEN) opponentWs.send(JSON.stringify({ type: WS_MESSAGES.OPPONENT_DISCONNECTED }));
-        storage.updateGame(game.id, game.board, game.turn, 'aborted');
-      }
     });
   });
 
