@@ -89,7 +89,7 @@ export default function Game() {
               <CheckersBoard board={board as number[][]} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
             ) : gameType === 'chess' ? (
               <ChessBoard board={board as string[][]} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
-            ) : gameType === 'mancala' && !Array.isArray(board[0]) ? (
+            ) : (gameType === 'mancala' || (typeof board[0] === 'number' && board.length === 14)) ? (
               <MancalaBoard board={board as number[]} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
             ) : (
               <Board board={board as number[][]} onColumnClick={makeMove} myTurn={isMyTurn} disabled={status !== 'playing' || !isMyTurn} myColor={myColor as 1 | 2} />
