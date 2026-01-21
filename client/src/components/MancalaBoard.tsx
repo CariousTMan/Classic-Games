@@ -16,20 +16,19 @@ export function MancalaBoard({ board, onMove, myTurn, myColor }: MancalaBoardPro
   
   const handlePitClick = (index: number) => {
     if (!myTurn) return;
+    // Player 1 can only click pits 0-5
     if (myColor === 1 && (index < 0 || index > 5)) return;
+    // Player 2 can only click pits 7-12
     if (myColor === 2 && (index < 7 || index > 12)) return;
     
-    // Safety check for board data type
     const seeds = board[index];
-    if (typeof seeds !== 'number' || seeds === 0) return;
+    if (typeof seeds !== 'number' || seeds <= 0) return;
     
     onMove(index);
   };
 
   const Pit = ({ index, color }: { index: number, color: 'red' | 'yellow' }) => {
-    const seedsValue = board[index];
-    const seeds = typeof seedsValue === 'number' ? seedsValue : 0;
-    
+    const seeds = typeof board[index] === 'number' ? board[index] : 0;
     const isOwnPit = (myColor === 1 && index >= 0 && index <= 5) || 
                      (myColor === 2 && index >= 7 && index <= 12);
     const isClickable = myTurn && isOwnPit && seeds > 0;
@@ -40,11 +39,12 @@ export function MancalaBoard({ board, onMove, myTurn, myColor }: MancalaBoardPro
           whileHover={isClickable ? { scale: 1.05 } : {}}
           whileTap={isClickable ? { scale: 0.95 } : {}}
           onClick={() => handlePitClick(index)}
+          type="button"
           className={cn(
             "w-14 h-14 md:w-20 md:h-20 rounded-full border-4 flex items-center justify-center text-xl font-bold transition-all shadow-inner relative",
             isClickable 
               ? "border-primary bg-primary/10 hover:bg-primary/20 cursor-pointer pointer-events-auto" 
-              : "border-slate-200 bg-slate-100 cursor-default opacity-80",
+              : "border-slate-200 bg-slate-100 cursor-default opacity-80 pointer-events-none",
             color === 'red' && "border-red-400 bg-red-50",
             color === 'yellow' && "border-yellow-400 bg-yellow-50",
             isClickable && color === 'red' && "hover:bg-red-100",
@@ -64,7 +64,7 @@ export function MancalaBoard({ board, onMove, myTurn, myColor }: MancalaBoardPro
         "w-20 h-56 md:w-28 md:h-72 rounded-3xl border-4 flex items-center justify-center text-4xl font-bold shadow-inner transition-colors",
         color === 'red' ? "border-red-500 bg-red-100 text-red-700" : "border-yellow-500 bg-yellow-100 text-yellow-700"
       )}>
-        {board[index]}
+        {typeof board[index] === 'number' ? board[index] : 0}
       </div>
     </div>
   );
@@ -75,7 +75,7 @@ export function MancalaBoard({ board, onMove, myTurn, myColor }: MancalaBoardPro
       <Store index={13} label="CPU" color="yellow" />
       
       <div className="flex flex-col gap-10 md:gap-16">
-        {/* Top Row: Player 2 pits (7-12) - shown in reverse for correct Mancala orientation */}
+        {/* Top Row: Player 2 pits (7-12) */}
         <div className="flex gap-3 md:gap-6 flex-row-reverse">
           {[7, 8, 9, 10, 11, 12].map((idx) => (
             <Pit key={idx} index={idx} color="yellow" />
