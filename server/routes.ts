@@ -142,27 +142,22 @@ function makeMancalaMove(board: number[], pitIndex: number, playerNum: number): 
     
     newBoard[currentPit]++;
     seeds--;
+
+    // Relay sowing: if the last seed lands in a non-empty pit (and not the store), 
+    // pick up all seeds from that pit and continue sowing.
+    if (seeds === 0 && newBoard[currentPit] > 1) {
+      const isStore = currentPit === 6 || currentPit === 13;
+      if (!isStore) {
+        seeds = newBoard[currentPit];
+        newBoard[currentPit] = 0;
+      }
+    }
   }
   
   // Extra turn if last seed in own store
   let nextTurn = playerNum === 1 ? 2 : 1;
   if (playerNum === 1 && currentPit === 6) nextTurn = 1;
   if (playerNum === 2 && currentPit === 13) nextTurn = 2;
-  
-  // Capture logic
-  if (newBoard[currentPit] === 1 && seeds === 0) {
-    const isOwnPit = playerNum === 1 ? (currentPit >= 0 && currentPit <= 5) : (currentPit >= 7 && currentPit <= 12);
-    if (isOwnPit) {
-      const oppositePit = 12 - currentPit;
-      if (newBoard[oppositePit] > 0) {
-        const capturedSeeds = newBoard[oppositePit] + 1;
-        newBoard[oppositePit] = 0;
-        newBoard[currentPit] = 0;
-        if (playerNum === 1) newBoard[6] += capturedSeeds;
-        else newBoard[13] += capturedSeeds;
-      }
-    }
-  }
   
   // Check game over
   const p1Empty = newBoard.slice(0, 6).every(p => p === 0);
