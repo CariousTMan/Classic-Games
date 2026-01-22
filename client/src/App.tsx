@@ -9,6 +9,7 @@ import Game from "@/pages/Game";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import robotSticker from "@/assets/im-not-a-robot.png";
 
 function AppContent() {
   const { user, isLoading } = useAuth();
@@ -28,9 +29,18 @@ function AppContent() {
           <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center text-white font-bold text-2xl mx-auto shadow-lg">GH</div>
           <h1 className="text-4xl font-display font-bold tracking-tight">GameHub</h1>
           <p className="text-muted-foreground">The ultimate destination for classic board games. Play Connect 4, Chess, Checkers, and Mancala with friends or AI.</p>
-          <Button asChild size="lg" className="w-full arcade-btn text-lg py-6">
-            <a href="/api/login">Login to Play</a>
-          </Button>
+          
+          <div className="flex flex-col items-center gap-4 py-4">
+            <Button asChild size="lg" className="w-full arcade-btn text-lg py-6">
+              <a href="/api/login">Login to Play</a>
+            </Button>
+            <div className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-md shadow-sm w-full">
+              <div className="w-6 h-6 border-2 border-slate-300 rounded" />
+              <span className="text-sm font-medium text-slate-600">I'm not a robot</span>
+              <img src={robotSticker} alt="Not a robot" className="w-8 h-8 ml-auto opacity-80" />
+            </div>
+          </div>
+          
           <p className="text-xs text-muted-foreground">Powered by Replit Auth</p>
         </div>
       </div>
