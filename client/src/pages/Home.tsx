@@ -1,12 +1,14 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { Gamepad2, Users, ArrowLeft, Grid3X3, CircleDot, Trophy } from "lucide-react";
+import { Gamepad2, Users, ArrowLeft, Grid3X3, CircleDot, Trophy, LogOut } from "lucide-react";
 import { useState } from "react";
 import { Leaderboard } from "@/components/Leaderboard";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Home() {
   const [, setLocation] = useLocation();
+  const { user, logout } = useAuth();
   const [menuState, setMenuState] = useState<'main' | 'game-select' | 'cpu-difficulty' | 'leaderboard'>('main');
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
 
@@ -21,7 +23,20 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <section className="relative flex-1 flex flex-col items-center justify-center px-4 py-20 overflow-hidden">
+      <header className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-primary rounded flex items-center justify-center text-white font-bold text-sm shadow-md">GH</div>
+          <span className="font-display font-bold text-lg hidden sm:inline-block">GameHub</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-muted-foreground hidden sm:inline-block">Welcome, {user?.firstName}</span>
+          <Button variant="ghost" size="sm" onClick={() => logout()} className="text-muted-foreground hover:text-foreground">
+            <LogOut className="mr-2 w-4 h-4" /> Logout
+          </Button>
+        </div>
+      </header>
+
+      <section className="relative flex-1 flex flex-col items-center justify-center px-4 py-12 overflow-hidden">
         <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
           <div className="absolute top-20 left-[10%] w-64 h-64 bg-red-500/10 rounded-full blur-3xl animate-pulse" />
           <div className="absolute bottom-20 right-[10%] w-72 h-72 bg-yellow-500/10 rounded-full blur-3xl animate-pulse delay-700" />
