@@ -2,6 +2,8 @@ import { pgTable, text, serial, integer, boolean, jsonb } from "drizzle-orm/pg-c
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export * from "./models/auth";
+
 // We'll store game history in the DB, but active game state will be in memory for speed
 export const games = pgTable("games", {
   id: serial("id").primaryKey(),
