@@ -1,12 +1,13 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { Gamepad2, Users, ArrowLeft, Grid3X3, CircleDot } from "lucide-react";
+import { Gamepad2, Users, ArrowLeft, Grid3X3, CircleDot, Trophy } from "lucide-react";
 import { useState } from "react";
+import { Leaderboard } from "@/components/Leaderboard";
 
 export default function Home() {
   const [, setLocation] = useLocation();
-  const [menuState, setMenuState] = useState<'main' | 'game-select' | 'cpu-difficulty'>('main');
+  const [menuState, setMenuState] = useState<'main' | 'game-select' | 'cpu-difficulty' | 'leaderboard'>('main');
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
 
   const startOnlineGame = (gameType: string) => {
@@ -29,19 +30,29 @@ export default function Home() {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center max-w-3xl space-y-8"
+          className="text-center w-full max-w-4xl space-y-8"
         >
           <h1 className="text-6xl md:text-8xl font-display font-bold tracking-tight bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 bg-clip-text text-transparent">
             GameHub
           </h1>
           
-          <div className="flex flex-col items-center justify-center gap-4 pt-8 min-h-[300px]">
+          <div className="flex flex-col items-center justify-center gap-4 pt-8 min-h-[400px]">
             <AnimatePresence mode="wait">
               {menuState === 'main' && (
                 <motion.div key="main" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-4 w-full max-w-sm">
                   <Button size="lg" onClick={() => setMenuState('game-select')} className="arcade-btn h-20 text-xl">
                     <Gamepad2 className="mr-3 w-8 h-8" /> Play Games
                   </Button>
+                  <Button size="lg" variant="outline" onClick={() => setMenuState('leaderboard')} className="h-16 text-lg border-2">
+                    <Trophy className="mr-3 w-6 h-6" /> Leaderboards
+                  </Button>
+                </motion.div>
+              )}
+
+              {menuState === 'leaderboard' && (
+                <motion.div key="leaderboard" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="w-full">
+                  <Leaderboard />
+                  <Button variant="ghost" onClick={() => setMenuState('main')} className="mt-6"><ArrowLeft className="mr-2" /> Back to Menu</Button>
                 </motion.div>
               )}
 
