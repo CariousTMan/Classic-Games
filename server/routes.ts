@@ -611,5 +611,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
   });
 
+  app.get("/api/leaderboard/:gameType", async (req, res) => {
+    const { gameType } = req.params;
+    const leaderboard = await storage.getLeaderboard(gameType);
+    res.json(leaderboard);
+  });
+
   return httpServer;
 }

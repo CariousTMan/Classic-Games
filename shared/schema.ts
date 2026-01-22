@@ -20,6 +20,19 @@ export const games = pgTable("games", {
   metadata: jsonb("metadata").notNull().default({}), // For specialized state like castling rights
 });
 
+export const leaderboards = pgTable("leaderboards", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  gameType: text("game_type").notNull(),
+  wins: integer("wins").notNull().default(0),
+  losses: integer("losses").notNull().default(0),
+  draws: integer("draws").notNull().default(0),
+});
+
+export const insertLeaderboardSchema = createInsertSchema(leaderboards).omit({ id: true });
+export type Leaderboard = typeof leaderboards.$inferSelect;
+export type InsertLeaderboard = z.infer<typeof insertLeaderboardSchema>;
+
 export const insertGameSchema = createInsertSchema(games).omit({ id: true });
 export type Game = typeof games.$inferSelect;
 export type InsertGame = z.infer<typeof insertGameSchema>;

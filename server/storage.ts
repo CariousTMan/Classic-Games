@@ -1,4 +1,4 @@
-import { games, type Game, type InsertGame } from "@shared/schema";
+import { games, leaderboards, type Game, type InsertGame, type Leaderboard } from "@shared/schema";
 
 export interface IStorage {
   // Queue operations
@@ -11,6 +11,10 @@ export interface IStorage {
   getGame(gameId: number): Promise<Game | undefined>;
   updateGame(gameId: number, board: any, turn: string, status: string, winnerId?: string | null): Promise<Game>;
   
+  // Leaderboard operations
+  getLeaderboard(gameType: string): Promise<Leaderboard[]>;
+  updateLeaderboard(userId: string, gameType: string, result: 'win' | 'loss' | 'draw'): Promise<void>;
+
   // Helpers
   getGameByPlayer(userId: string): Promise<Game | undefined>;
 }
@@ -19,6 +23,7 @@ export class MemStorage implements IStorage {
   private queues: Map<string, Set<string>> = new Map();
   private activeGames: Map<number, Game> = new Map();
   private gameIdCounter = 1;
+  private leaderboardData: Leaderboard[] = []; // In-memory for now to match MemStorage pattern, but we have the table
 
   addToQueue(userId: string, gameType: string): void {
     if (!this.queues.has(gameType)) {
@@ -118,6 +123,24 @@ export class MemStorage implements IStorage {
     return Array.from(this.activeGames.values()).find(g => 
       (g.player1Id === userId || g.player2Id === userId) && g.status === 'playing'
     );
+  }
+
+  async getLeaderboard(gameType: string): Promise<Leaderboard[]> {
+    return this.leaderboardData
+      .filter(l => l.gameType === gameType)
+      .sort((a, b) => b.wins - a.wins)
+      .slice(0, 10);
+  }
+
+  async updateLeaderboard(userId: string, gameType: string, result: 'win' | 'loss' | 'draw'): Promise<void> {
+    let entry = this.leaderboardData.find(l => l.userId === userId && l.gameType === gameType);
+    if (!entry) {
+      entry = { id: this.leaderboardData.length + 1, userId, gameType, wins: 0, losses: 0, draws: 0 };
+      this.leaderboardData.push(entry);
+    }
+    if (result === 'win') entry.wins++;
+    else if (result === 'loss') entry.losses++;
+    else entry.draws++;
   }
 }
 
