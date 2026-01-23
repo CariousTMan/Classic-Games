@@ -31,14 +31,23 @@ function AppContent() {
           <p className="text-muted-foreground">The ultimate destination for classic board games. Play Connect 4, Chess, Checkers, and Mancala with friends or AI.</p>
           
           <div className="flex flex-col items-center gap-4 py-4">
-            <Button asChild size="lg" className="w-full arcade-btn text-lg py-6">
-              <a href="/api/login">Login to Play</a>
-            </Button>
-            <div className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-md shadow-sm w-full">
-              <div className="w-6 h-6 border-2 border-slate-300 rounded" />
-              <span className="text-sm font-medium text-slate-600">I'm not a robot</span>
-              <img src={robotSticker} alt="Not a robot" className="w-8 h-8 ml-auto opacity-80" />
+            <div className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-md shadow-sm w-full group transition-all duration-200">
+              <input 
+                type="checkbox" 
+                id="robot-check"
+                className="w-6 h-6 cursor-pointer rounded border-2 border-slate-300 transition-colors hover:border-primary focus:ring-primary"
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setTimeout(() => {
+                      window.location.href = "/api/login";
+                    }, 800);
+                  }
+                }}
+              />
+              <label htmlFor="robot-check" className="text-sm font-medium text-slate-600 cursor-pointer select-none">I'm not a robot</label>
+              <img src={robotSticker} alt="Not a robot" className="w-8 h-8 ml-auto opacity-80 pointer-events-none group-hover:opacity-100 transition-opacity" />
             </div>
+            <p className="text-[10px] text-muted-foreground">Click the checkbox to proceed to login</p>
           </div>
           
           <p className="text-xs text-muted-foreground">Powered by Replit Auth</p>

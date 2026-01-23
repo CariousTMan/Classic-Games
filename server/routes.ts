@@ -228,11 +228,11 @@ function isValidChessMove(board: string[][], from: { r: number, c: number }, to:
         const rights = metadata?.castlingRights || { wK: true, wQ: true, bK: true, bQ: true };
         const r = from.r;
         if (isWhite && r === 7) {
-          if (to.c === 6 && rights.wK && board[r][5] === '' && board[r][6] === '' && board[r][7].toUpperCase() === 'R') return { valid: true, castling: 'K' };
-          if (to.c === 2 && rights.wQ && board[r][1] === '' && board[r][2] === '' && board[r][3] === '' && board[r][0].toUpperCase() === 'R') return { valid: true, castling: 'Q' };
+          if (to.c === 6 && rights.wK && board[r][5] === '' && board[r][6] === '' && board[r][7] === 'R') return { valid: true, castling: 'K' };
+          if (to.c === 2 && rights.wQ && board[r][1] === '' && board[r][2] === '' && board[r][3] === '' && board[r][0] === 'R') return { valid: true, castling: 'Q' };
         } else if (!isWhite && r === 0) {
-          if (to.c === 6 && rights.bK && board[r][5] === '' && board[r][6] === '' && board[r][7].toUpperCase() === 'R') return { valid: true, castling: 'K' };
-          if (to.c === 2 && rights.bQ && board[r][1] === '' && board[r][2] === '' && board[r][3] === '' && board[r][0].toUpperCase() === 'R') return { valid: true, castling: 'Q' };
+          if (to.c === 6 && rights.bK && board[r][5] === '' && board[r][6] === '' && board[r][7] === 'r') return { valid: true, castling: 'K' };
+          if (to.c === 2 && rights.bQ && board[r][1] === '' && board[r][2] === '' && board[r][3] === '' && board[r][0] === 'r') return { valid: true, castling: 'Q' };
         }
       }
       return { valid: absDr <= 1 && absDc <= 1 };
