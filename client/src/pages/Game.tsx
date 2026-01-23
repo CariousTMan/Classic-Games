@@ -86,18 +86,20 @@ export default function Game() {
               <div className="text-6xl mb-4">🔍</div>
               <h2 className="text-2xl font-bold">Finding Match...</h2>
             </div>
-          ) : board && Array.isArray(board) ? (
-            gameType === 'checkers' ? (
-              <CheckersBoard board={board as number[][]} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
-            ) : gameType === 'chess' ? (
-              <ChessBoard board={board as string[][]} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
-            ) : gameType === 'blackjack' ? (
-              <BlackjackBoard gameId={searchParams.get('gameId')} socket={socket} onGameOver={(winner: any) => {}} initialBoard={board} />
-            ) : (gameType === 'mancala' || (typeof board[0] === 'number' && board.length === 14)) ? (
-              <MancalaBoard board={board as number[]} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
-            ) : (
-              <Board board={board as number[][]} onColumnClick={makeMove} myTurn={isMyTurn} disabled={status !== 'playing' || !isMyTurn} myColor={myColor as 1 | 2} />
-            )
+          ) : board ? (
+            gameType === 'blackjack' ? (
+              <BlackjackBoard gameId={gameState.gameId} socket={socket} onGameOver={(winner: any) => {}} initialBoard={board} />
+            ) : Array.isArray(board) ? (
+              gameType === 'checkers' ? (
+                <CheckersBoard board={board as number[][]} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
+              ) : gameType === 'chess' ? (
+                <ChessBoard board={board as string[][]} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
+              ) : (gameType === 'mancala' || (typeof board[0] === 'number' && board.length === 14)) ? (
+                <MancalaBoard board={board as number[]} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
+              ) : (
+                <Board board={board as number[][]} onColumnClick={makeMove} myTurn={isMyTurn} disabled={status !== 'playing' || !isMyTurn} myColor={myColor as 1 | 2} />
+              )
+            ) : null
           ) : null}
         </div>
       </main>
