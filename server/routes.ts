@@ -181,7 +181,32 @@ function getMancalaCpuMove(board: number[]): number {
   return validPits[Math.floor(Math.random() * validPits.length)];
 }
 
-// Chess Logic Helpers
+// Blackjack Logic Helpers
+type BlackjackCard = { suit: string, rank: string, value: number };
+function createDeck(): BlackjackCard[] {
+  const suits = ['♠', '♣', '♥', '♦'];
+  const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+  const deck: BlackjackCard[] = [];
+  for (const suit of suits) {
+    for (const rank of ranks) {
+      let value = parseInt(rank);
+      if (['J', 'Q', 'K'].includes(rank)) value = 10;
+      if (rank === 'A') value = 11;
+      deck.push({ suit, rank, value });
+    }
+  }
+  return deck.sort(() => Math.random() - 0.5);
+}
+
+function calculateBlackjackScore(hand: BlackjackCard[]): number {
+  let score = hand.reduce((sum, card) => sum + card.value, 0);
+  let aces = hand.filter(c => c.rank === 'A').length;
+  while (score > 21 && aces > 0) {
+    score -= 10;
+    aces--;
+  }
+  return score;
+}
 function isValidChessMove(board: string[][], from: { r: number, c: number }, to: { r: number, c: number }, playerNum: number, metadata: any = {}): { valid: boolean, castling?: 'K' | 'Q' } {
   const piece = board[from.r][from.c];
   if (piece === '') return { valid: false };
@@ -369,7 +394,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           }
         } 
         else if (message.type === WS_MESSAGES.START_CPU_GAME) {
+          let bjBoard: any = null;
+          if (message.payload.gameType === 'blackjack') {
+            const deck = createDeck();
+            bjBoard = {
+              playerHand: [deck.pop()!, deck.pop()!],
+              dealerHand: [deck.pop()!],
+              deck: deck
+            };
+          }
           const game = await storage.createGame(userId, 'cpu', message.payload.gameType, true, message.payload.difficulty);
+          if (bjBoard) {
+            await storage.updateGame(game.id, bjBoard, game.turn, game.status, game.winnerId);
+          }
           ws.send(JSON.stringify({
             type: WS_MESSAGES.MATCH_FOUND,
             payload: { gameId: game.id, gameType: message.payload.gameType, opponentId: 'cpu', yourColor: 1 }
@@ -501,6 +538,43 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                 if (cStatus === 'finished') notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: cWinner === 'draw' ? 'draw' : cWinner, board: cBoard } }));
               }, 500);
             }
+          } else if (game.gameType === 'blackjack') {
+            const board = game.board as { playerHand: BlackjackCard[], dealerHand: BlackjackCard[], deck: BlackjackCard[] };
+            const { action } = move;
+            let status = 'playing';
+            let winnerId = null;
+            let turn = game.turn;
+
+            if (action === 'hit') {
+              board.playerHand.push(board.deck.pop()!);
+              if (calculateBlackjackScore(board.playerHand) > 21) {
+                status = 'finished';
+                winnerId = 'cpu';
+                await storage.updateLeaderboard(userId, 'blackjack', 'loss');
+              }
+            } else if (action === 'stand') {
+              turn = 'player2';
+              while (calculateBlackjackScore(board.dealerHand) < 17) {
+                board.dealerHand.push(board.deck.pop()!);
+              }
+              status = 'finished';
+              const pScore = calculateBlackjackScore(board.playerHand);
+              const dScore = calculateBlackjackScore(board.dealerHand);
+              if (dScore > 21 || pScore > dScore) {
+                winnerId = userId;
+                await storage.updateLeaderboard(userId, 'blackjack', 'win');
+              } else if (dScore > pScore) {
+                winnerId = 'cpu';
+                await storage.updateLeaderboard(userId, 'blackjack', 'loss');
+              } else {
+                winnerId = 'draw';
+                await storage.updateLeaderboard(userId, 'blackjack', 'draw');
+              }
+            }
+
+            await storage.updateGame(gameId, board, turn, status, winnerId);
+            notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board, turn: turn === 'player1' ? 1 : 2 } }));
+            if (status === 'finished') notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winnerId === 'draw' ? 'draw' : (winnerId === userId ? 1 : 2), board } }));
           } else if (game.gameType === 'chess') {
             const { from, to } = move;
             const board = game.board as string[][];

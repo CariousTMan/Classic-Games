@@ -4,6 +4,7 @@ import { Board } from "@/components/Board";
 import { CheckersBoard } from "@/components/CheckersBoard";
 import { ChessBoard } from "@/components/ChessBoard";
 import { MancalaBoard } from "@/components/MancalaBoard";
+import BlackjackBoard from "@/components/Blackjack";
 import { PlayerCard } from "@/components/PlayerCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import confetti from "canvas-confetti";
 import { Link, useSearch } from "wouter";
 
 export default function Game() {
-  const { connected, gameState, joinQueue, startCpuGame, leaveQueue, makeMove, resetGame } = useGameSocket();
+  const { connected, gameState, joinQueue, startCpuGame, leaveQueue, makeMove, resetGame, socket } = useGameSocket();
   const { status, board, turn, myColor, winner, opponentConnected, gameType } = gameState;
   const searchParams = new URLSearchParams(useSearch());
   const initialized = useRef(false);
@@ -50,6 +51,7 @@ export default function Game() {
       case 'checkers': return 'Checkers';
       case 'chess': return 'Chess';
       case 'mancala': return 'Mancala';
+      case 'blackjack': return 'Blackjack';
       default: return 'Connect Four';
     }
   };
@@ -89,6 +91,8 @@ export default function Game() {
               <CheckersBoard board={board as number[][]} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
             ) : gameType === 'chess' ? (
               <ChessBoard board={board as string[][]} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
+            ) : gameType === 'blackjack' ? (
+              <BlackjackBoard gameId={searchParams.get('gameId')} socket={socket} onGameOver={(winner: any) => {}} />
             ) : (gameType === 'mancala' || (typeof board[0] === 'number' && board.length === 14)) ? (
               <MancalaBoard board={board as number[]} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
             ) : (

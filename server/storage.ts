@@ -82,9 +82,9 @@ export class MemStorage implements IStorage {
     return Array(6).fill(null).map(() => Array(7).fill(0));
   }
 
-  async createGame(p1: string, p2: string, gameType: string, isCpu: boolean = false, difficulty: string = 'easy'): Promise<Game> {
+  async createGame(p1: string, p2: string, gameType: string, isCpu: boolean = false, difficulty: string = 'easy', initialBoard?: any): Promise<Game> {
     const id = this.gameIdCounter++;
-    const board = this.createInitialBoard(gameType);
+    const board = initialBoard || this.createInitialBoard(gameType);
 
     const game: Game = {
       id,

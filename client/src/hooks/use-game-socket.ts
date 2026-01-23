@@ -167,5 +167,14 @@ export function useGameSocket() {
     });
   };
 
-  return { connected, gameState, joinQueue, startCpuGame, leaveQueue, makeMove, resetGame };
+  return { 
+    connected, 
+    gameState, 
+    joinQueue, 
+    startCpuGame, 
+    leaveQueue, 
+    makeMove, 
+    resetGame,
+    socket: wsRef.current
+  };
 }
