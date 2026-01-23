@@ -92,7 +92,7 @@ export default function Game() {
             ) : gameType === 'chess' ? (
               <ChessBoard board={board as string[][]} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
             ) : gameType === 'blackjack' ? (
-              <BlackjackBoard gameId={searchParams.get('gameId')} socket={socket} onGameOver={(winner: any) => {}} />
+              <BlackjackBoard gameId={searchParams.get('gameId')} socket={socket} onGameOver={(winner: any) => {}} initialBoard={board} />
             ) : (gameType === 'mancala' || (typeof board[0] === 'number' && board.length === 14)) ? (
               <MancalaBoard board={board as number[]} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
             ) : (

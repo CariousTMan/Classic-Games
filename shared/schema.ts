@@ -55,7 +55,7 @@ export type WsMessage =
   | { type: 'JOIN_QUEUE', payload: { gameType: string } }
   | { type: 'LEAVE_QUEUE' }
   | { type: 'START_CPU_GAME', payload: { gameType: string, difficulty: 'easy' | 'medium' | 'hard' } }
-  | { type: 'MATCH_FOUND', payload: { gameId: number, gameType: string, yourColor: 1 | 2, opponentId: string } }
+  | { type: 'MATCH_FOUND', payload: { gameId: number, gameType: string, yourColor: 1 | 2, opponentId: string, board?: any } }
   | { type: 'MAKE_MOVE', payload: { move: any, gameId: number } }
   | { type: 'GAME_UPDATE', payload: { board: any, turn: 1 | 2 } }
   | { type: 'GAME_OVER', payload: { winner: 1 | 2 | 'draw', board: any } }

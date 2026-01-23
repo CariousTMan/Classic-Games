@@ -409,7 +409,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           }
           ws.send(JSON.stringify({
             type: WS_MESSAGES.MATCH_FOUND,
-            payload: { gameId: game.id, gameType: message.payload.gameType, opponentId: 'cpu', yourColor: 1 }
+            payload: { gameId: game.id, gameType: message.payload.gameType, opponentId: 'cpu', yourColor: 1, board: bjBoard }
           }));
         }
         else if (message.type === WS_MESSAGES.MAKE_MOVE) {

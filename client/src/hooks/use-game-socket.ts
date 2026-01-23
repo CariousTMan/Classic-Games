@@ -89,7 +89,7 @@ export function useGameSocket() {
             gameType: message.payload.gameType,
             gameId: message.payload.gameId,
             myColor: message.payload.yourColor,
-            board: initialBoard,
+            board: message.payload.board || initialBoard,
             turn: 1,
             winner: null,
             opponentConnected: true

@@ -5,8 +5,8 @@ import { WS_MESSAGES } from "@shared/schema";
 
 type CardData = { suit: string, rank: string, value: number };
 
-export default function Blackjack({ gameId, socket, onGameOver }: any) {
-  const [gameState, setGameState] = useState<any>(null);
+export default function Blackjack({ gameId, socket, onGameOver, initialBoard }: any) {
+  const [gameState, setGameState] = useState<any>(initialBoard);
 
   useEffect(() => {
     if (!socket) return;
@@ -21,7 +21,7 @@ export default function Blackjack({ gameId, socket, onGameOver }: any) {
     };
     socket.addEventListener('message', handler);
     return () => socket.removeEventListener('message', handler);
-  }, [socket]);
+  }, [socket, onGameOver]);
 
   const makeMove = (action: string) => {
     socket.send(JSON.stringify({
