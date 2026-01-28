@@ -89,6 +89,9 @@ export default function Home() {
                   <Button variant="outline" onClick={() => { setSelectedGame('blackjack'); setMenuState('cpu-difficulty'); }} className="h-20 text-lg border-2">
                     <div className="mr-3 w-6 h-6 flex items-center justify-center font-bold">🃏</div> Blackjack
                   </Button>
+                  <Button variant="outline" onClick={() => { setSelectedGame('poker'); setMenuState('cpu-difficulty'); }} className="h-20 text-lg border-2 border-red-500/30">
+                    <div className="mr-3 w-6 h-6 flex items-center justify-center font-bold">♠️</div> Poker
+                  </Button>
                   <Button variant="ghost" onClick={() => setMenuState('main')} className="mt-4"><ArrowLeft className="mr-2" /> Back</Button>
                 </motion.div>
               )}

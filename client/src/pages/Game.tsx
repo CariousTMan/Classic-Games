@@ -5,6 +5,7 @@ import { CheckersBoard } from "@/components/CheckersBoard";
 import { ChessBoard } from "@/components/ChessBoard";
 import { MancalaBoard } from "@/components/MancalaBoard";
 import BlackjackBoard from "@/components/Blackjack";
+import PokerBoard from "@/components/Poker";
 import { PlayerCard } from "@/components/PlayerCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -89,6 +90,8 @@ export default function Game() {
           ) : board ? (
             gameType === 'blackjack' ? (
               <BlackjackBoard gameId={gameState.gameId} socket={socket} onGameOver={(winner: any) => {}} initialBoard={board} />
+            ) : gameType === 'poker' ? (
+              <PokerBoard gameId={gameState.gameId} socket={socket} onGameOver={(winner: any) => {}} initialBoard={board} />
             ) : Array.isArray(board) ? (
               gameType === 'checkers' ? (
                 <CheckersBoard board={board as number[][]} onMove={makeMove} myTurn={isMyTurn} myColor={myColor as 1 | 2} />
