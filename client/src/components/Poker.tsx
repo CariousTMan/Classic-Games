@@ -69,10 +69,19 @@ export default function Poker({ gameId, socket, onGameOver, initialBoard }: any)
               </motion.div>
             ))}
           </div>
-          <div className="text-center font-display text-primary font-bold">${gameState.playerChips}</div>
+          <div className="text-center font-display text-primary font-bold text-2xl mt-4">${gameState.playerChips}</div>
         </div>
 
-        <div className="flex flex-col justify-center gap-3">
+        <div className="flex flex-col justify-center gap-4">
+          <div className="bg-slate-900/40 p-4 rounded-xl border border-white/5 space-y-2">
+            <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <span>CPU Chips</span>
+              <span className="text-white">${gameState.cpuChips}</span>
+            </div>
+            <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div className="h-full bg-red-500" style={{ width: `${(gameState.cpuChips / 1000) * 100}%` }} />
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Button onClick={() => pokerAction('check')} className="arcade-btn h-12" disabled={gameState.turn !== 1}>Check</Button>
             <Button onClick={() => pokerAction('call')} variant="outline" className="h-12 border-2" disabled={gameState.turn !== 1}>Call</Button>
