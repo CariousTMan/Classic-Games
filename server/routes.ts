@@ -500,9 +500,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               }
             }
 
-            // Phase transition logic
-            const shouldTransition = action === 'call' || (action === 'check' && newBoard.turn === 2);
-            if (shouldTransition) {
+          // Phase transition logic
+          // If action is call, or if turn-player checks and turn-cpu checks, transition.
+          const isPlayer = board.turn === 1;
+          const isCpu = board.turn === 2;
+          
+          let shouldTransition = false;
+          if (action === 'call') {
+            shouldTransition = true;
+          } else if (action === 'check') {
+            // If checking, we only transition if both have checked.
+            // Simplified: if the player checks, turn moves to CPU. If CPU checks, phase transitions.
+            if (isCpu) shouldTransition = true;
+          }
               if (newBoard.phase === 'flop') {
                 newBoard.phase = 'turn';
                 newBoard.communityCards.push(newBoard.deck.pop());
