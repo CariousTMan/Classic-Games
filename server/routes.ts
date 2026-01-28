@@ -1,4 +1,4 @@
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import type { Express } from "express";
 import { type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
@@ -137,15 +137,12 @@ function makeMancalaMove(board: number[], pitIndex: number, playerNum: number): 
   let currentPit = pitIndex;
   while (seeds > 0) {
     currentPit = (currentPit + 1) % 14;
-    // Skip opponent's store
     if (playerNum === 1 && currentPit === 13) continue;
     if (playerNum === 2 && currentPit === 6) continue;
     
     newBoard[currentPit]++;
     seeds--;
 
-    // Relay sowing: if the last seed lands in a non-empty pit (and not the store), 
-    // pick up all seeds from that pit and continue sowing.
     if (seeds === 0 && newBoard[currentPit] > 1) {
       const isStore = currentPit === 6 || currentPit === 13;
       if (!isStore) {
@@ -155,18 +152,15 @@ function makeMancalaMove(board: number[], pitIndex: number, playerNum: number): 
     }
   }
   
-  // Extra turn if last seed in own store
   let nextTurn = playerNum === 1 ? 2 : 1;
   if (playerNum === 1 && currentPit === 6) nextTurn = 1;
   if (playerNum === 2 && currentPit === 13) nextTurn = 2;
   
-  // Check game over
   const p1Empty = newBoard.slice(0, 6).every(p => p === 0);
   const p2Empty = newBoard.slice(7, 13).every(p => p === 0);
   let gameOver = false;
   if (p1Empty || p2Empty) {
     gameOver = true;
-    // Move remaining seeds to stores
     for (let i = 0; i < 6; i++) { newBoard[6] += newBoard[i]; newBoard[i] = 0; }
     for (let i = 7; i < 13; i++) { newBoard[13] += newBoard[i]; newBoard[i] = 0; }
   }
@@ -177,7 +171,6 @@ function makeMancalaMove(board: number[], pitIndex: number, playerNum: number): 
 function getMancalaCpuMove(board: number[]): number {
   const validPits = [];
   for (let i = 7; i <= 12; i++) if (board[i] > 0) validPits.push(i);
-  // Easy AI: random move
   return validPits[Math.floor(Math.random() * validPits.length)];
 }
 
@@ -189,24 +182,20 @@ function evaluatePokerHand(hand: PokerCard[], community: PokerCard[]): number {
   const rankValues = allCards.map(c => c.value).sort((a, b) => b - a);
   const suits = allCards.map(c => c.suit);
   
-  // Check Flush
   const suitCounts: any = {};
   suits.forEach(s => suitCounts[s] = (suitCounts[s] || 0) + 1);
   const isFlush = Object.values(suitCounts).some((count: any) => count >= 5);
   
-  // Check Straight (simplified)
   const uniqueRanks = Array.from(new Set(rankValues)).sort((a, b) => b - a);
   let isStraight = false;
   for (let i = 0; i <= uniqueRanks.length - 5; i++) {
     if (uniqueRanks[i] - uniqueRanks[i+4] === 4) isStraight = true;
   }
 
-  // Value Multipliers
   if (isFlush && isStraight) return 1000 + rankValues[0];
   if (isFlush) return 500 + rankValues[0];
   if (isStraight) return 400 + rankValues[0];
   
-  // Pairs / Three / Four of a kind
   const counts: any = {};
   rankValues.forEach(v => counts[v] = (counts[v] || 0) + 1);
   const values = Object.values(counts) as number[];
@@ -222,13 +211,12 @@ function evaluatePokerHand(hand: PokerCard[], community: PokerCard[]): number {
 function getPokerCpuAction(board: any): { action: 'fold' | 'check' | 'call' | 'bet', amount?: number } {
   const cpuScore = evaluatePokerHand(board.cpuHand, board.communityCards);
   const playerScore = evaluatePokerHand(board.playerHand, board.communityCards);
-  
-  // Basic AI logic
   if (cpuScore > playerScore + 5) return { action: 'bet', amount: 50 };
   if (cpuScore > playerScore - 5) return { action: 'call' };
   if (Math.random() > 0.8) return { action: 'bet', amount: 25 };
   return { action: 'check' };
 }
+
 type BlackjackCard = { suit: string, rank: string, value: number };
 function createDeck(): BlackjackCard[] {
   const suits = ['♠', '♣', '♥', '♦'];
@@ -254,26 +242,23 @@ function calculateBlackjackScore(hand: BlackjackCard[]): number {
   }
   return score;
 }
+
 function isValidChessMove(board: string[][], from: { r: number, c: number }, to: { r: number, c: number }, playerNum: number, metadata: any = {}): { valid: boolean, castling?: 'K' | 'Q' } {
   const piece = board[from.r][from.c];
   if (piece === '') return { valid: false };
-  
   const isWhite = piece === piece.toUpperCase();
   if (playerNum === 1 && !isWhite) return { valid: false };
   if (playerNum === 2 && isWhite) return { valid: false };
-
   const targetPiece = board[to.r][to.c];
   if (targetPiece !== '') {
     const isTargetWhite = targetPiece === targetPiece.toUpperCase();
     if (isWhite === isTargetWhite) return { valid: false };
   }
-
   const dr = to.r - from.r;
   const dc = to.c - from.c;
   const absDr = Math.abs(dr);
   const absDc = Math.abs(dc);
   const type = piece.toUpperCase();
-
   switch (type) {
     case 'P':
       const direction = isWhite ? -1 : 1;
@@ -409,7 +394,6 @@ function hasLegalMoves(board: string[][], playerNum: number, metadata: any): boo
 }
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
-  // 1. Setup auth BEFORE other routes
   await setupAuth(app);
   registerAuthRoutes(app);
 
@@ -493,26 +477,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               newBoard.pot += callAmount;
               if (board.turn === 1) newBoard.playerChips -= callAmount;
               else newBoard.cpuChips -= callAmount;
-              newBoard.currentBet = 0; // Reset bet after call
+              newBoard.currentBet = 0;
             } else if (action === 'check') {
               if (Number(newBoard.currentBet) > 0) {
                 return ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Cannot check when there is a bet" } }));
               }
             }
 
-          // Phase transition logic
-          // If action is call, or if turn-player checks and turn-cpu checks, transition.
-          const isPlayer = board.turn === 1;
-          const isCpu = board.turn === 2;
-          
-          let shouldTransition = false;
-          if (action === 'call') {
-            shouldTransition = true;
-          } else if (action === 'check') {
-            // If checking, we only transition if both have checked.
-            // Simplified: if the player checks, turn moves to CPU. If CPU checks, phase transitions.
-            if (isCpu) shouldTransition = true;
-          }
+            const isCpuTurn = board.turn === 2;
+            let shouldTransition = false;
+            if (action === 'call') shouldTransition = true;
+            else if (action === 'check' && isCpuTurn) shouldTransition = true;
+
+            if (shouldTransition) {
               if (newBoard.phase === 'flop') {
                 newBoard.phase = 'turn';
                 newBoard.communityCards.push(newBoard.deck.pop());
@@ -534,19 +511,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           }
 
           if (gameOver) {
-            const status = 'finished';
             const winnerId = winnerNum === 'draw' ? 'draw' : (winnerNum === 1 ? game.player1Id : 'cpu');
-            await storage.updateGame(gameId, newBoard, 'player1', status, winnerId);
+            await storage.updateGame(gameId, newBoard, 'player1', 'finished', winnerId);
             notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: 1 } }));
             notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winnerNum, board: newBoard } }));
-            
-            // Update leaderboard
             if (winnerNum !== 'draw') {
               if (winnerNum === 1) await storage.updateLeaderboard(game.player1Id, 'poker', 'win');
               else await storage.updateLeaderboard(game.player1Id, 'poker', 'loss');
-            } else {
-              await storage.updateLeaderboard(game.player1Id, 'poker', 'draw');
-            }
+            } else await storage.updateLeaderboard(game.player1Id, 'poker', 'draw');
           } else {
             newBoard.turn = board.turn === 1 ? 2 : 1;
             await storage.updateGame(gameId, newBoard, game.turn, game.status, game.winnerId);
@@ -562,10 +534,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                   notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: 1, board: finalBoard } }));
                   await storage.updateLeaderboard(game.player1Id, 'poker', 'win');
                 } else {
-                  // CPU ACTION HANDLING
-                  const cpuActionMessage = { type: 'POKER_ACTION', payload: { action: cpuMove.action, amount: cpuMove.amount, gameId } };
-                  // We recurse into the logic by simulating a message
-                  // But let's just apply it directly for simplicity
                   const finalCpuBoard = { ...newBoard };
                   if (cpuMove.action === 'bet') {
                     finalCpuBoard.currentBet = (finalCpuBoard.currentBet || 0) + (cpuMove.amount || 50);
@@ -578,11 +546,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                     finalCpuBoard.currentBet = 0;
                   }
                   
-                  // Re-check transition for CPU action
-                  let cpuTransition = false;
-                  if (cpuMove.action === 'call') cpuTransition = true;
-                  else if (cpuMove.action === 'check') cpuTransition = true;
-
+                  let cpuTransition = (cpuMove.action === 'call' || cpuMove.action === 'check');
                   if (cpuTransition) {
                     if (finalCpuBoard.phase === 'flop') {
                       finalCpuBoard.phase = 'turn';
@@ -601,7 +565,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                       return;
                     }
                   }
-
                   finalCpuBoard.turn = 1;
                   await storage.updateGame(gameId, finalCpuBoard, 'player1', game.status, game.winnerId);
                   notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: finalCpuBoard, turn: 1 } }));
@@ -614,19 +577,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           const { gameId, move } = message.payload;
           const game = await storage.getGame(gameId);
           if (!game || game.status !== 'playing') return;
-
           const isPlayer1 = game.player1Id === userId;
           const isPlayer2 = game.player2Id === userId;
           if (!isPlayer1 && !isPlayer2) return;
           if ((isPlayer1 && game.turn !== 'player1') || (isPlayer2 && game.turn !== 'player2')) return;
-
           const notify = (msg: string) => {
             const p1 = clients.get(game.player1Id);
             const p2 = clients.get(game.player2Id);
             if (p1?.readyState === WebSocket.OPEN) p1.send(msg);
             if (p2?.readyState === WebSocket.OPEN) p2.send(msg);
           };
-
           if (game.gameType === 'connect4') {
             const column = move;
             const board = game.board as number[][];
@@ -723,13 +683,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                 let cWinner = checkWinCheckers(cBoard, 1);
                 let cStatus = cWinner ? 'finished' : 'playing';
                 if (cStatus === 'finished') {
-                  if (cWinner === 'draw') {
-                    await storage.updateLeaderboard(game.player1Id, 'checkers', 'draw');
-                  } else if (cWinner === 1) {
-                    await storage.updateLeaderboard(game.player1Id, 'checkers', 'win');
-                  } else {
-                    await storage.updateLeaderboard(game.player1Id, 'checkers', 'loss');
-                  }
+                  if (cWinner === 'draw') await storage.updateLeaderboard(game.player1Id, 'checkers', 'draw');
+                  else if (cWinner === 1) await storage.updateLeaderboard(game.player1Id, 'checkers', 'win');
+                  else await storage.updateLeaderboard(game.player1Id, 'checkers', 'loss');
                 }
                 await storage.updateGame(gameId, cBoard, 'player1', cStatus, cWinner ? (cWinner === 1 ? game.player1Id : 'cpu') : null);
                 notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: cBoard, turn: 1 } }));
@@ -742,34 +698,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             let status = 'playing';
             let winnerId = null;
             let turn = game.turn;
-
             if (action === 'hit') {
               board.playerHand.push(board.deck.pop()!);
               if (calculateBlackjackScore(board.playerHand) > 21) {
-                status = 'finished';
-                winnerId = 'cpu';
+                status = 'finished'; winnerId = 'cpu';
                 await storage.updateLeaderboard(userId, 'blackjack', 'loss');
               }
             } else if (action === 'stand') {
               turn = 'player2';
-              while (calculateBlackjackScore(board.dealerHand) < 17) {
-                board.dealerHand.push(board.deck.pop()!);
-              }
+              while (calculateBlackjackScore(board.dealerHand) < 17) board.dealerHand.push(board.deck.pop()!);
               status = 'finished';
               const pScore = calculateBlackjackScore(board.playerHand);
               const dScore = calculateBlackjackScore(board.dealerHand);
-              if (dScore > 21 || pScore > dScore) {
-                winnerId = userId;
-                await storage.updateLeaderboard(userId, 'blackjack', 'win');
-              } else if (dScore > pScore) {
-                winnerId = 'cpu';
-                await storage.updateLeaderboard(userId, 'blackjack', 'loss');
-              } else {
-                winnerId = 'draw';
-                await storage.updateLeaderboard(userId, 'blackjack', 'draw');
-              }
+              if (dScore > 21 || pScore > dScore) { winnerId = userId; await storage.updateLeaderboard(userId, 'blackjack', 'win'); }
+              else if (dScore > pScore) { winnerId = 'cpu'; await storage.updateLeaderboard(userId, 'blackjack', 'loss'); }
+              else { winnerId = 'draw'; await storage.updateLeaderboard(userId, 'blackjack', 'draw'); }
             }
-
             await storage.updateGame(gameId, board, turn, status, winnerId);
             notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board, turn: turn === 'player1' ? 1 : 2 } }));
             if (status === 'finished') notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winnerId === 'draw' ? 'draw' : (winnerId === userId ? 1 : 2), board } }));
@@ -780,10 +724,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             const newMetadata = { ...(game.metadata as any) || {} };
             if (!newMetadata.castlingRights) newMetadata.castlingRights = { wK: true, wQ: true, bK: true, bQ: true };
             const movingPiece = board[from.r][from.c];
-            
             const moveRes = isValidChessMove(board, from, to, playerNum, newMetadata);
             if (!moveRes.valid) { ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Invalid chess move" } })); return; }
-            
             if (moveRes.castling) {
               if (isInCheck(board, playerNum)) { ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Cannot castle out of check" } })); return; }
               const stepC = moveRes.castling === 'K' ? 5 : 3;
@@ -792,46 +734,37 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               stepBoard[from.r][from.c] = '';
               if (isInCheck(stepBoard, playerNum)) { ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Cannot castle through check" } })); return; }
             }
-            
             const tempBoard = board.map(row => [...row]);
             tempBoard[to.r][to.c] = tempBoard[from.r][from.c];
             tempBoard[from.r][from.c] = '';
             if (isInCheck(tempBoard, playerNum)) { ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Move would leave king in check" } })); return; }
-
             const chessBoard = board.map(row => [...row]);
             let pieceToMove = chessBoard[from.r][from.c];
-            
-            // Pawn Promotion (Auto-promote to Queen for simplicity)
             if (pieceToMove === 'P' && to.r === 0) pieceToMove = 'Q';
             if (pieceToMove === 'p' && to.r === 7) pieceToMove = 'q';
-            
             chessBoard[to.r][to.c] = pieceToMove;
             chessBoard[from.r][from.c] = '';
-            
             if (movingPiece === 'K') { newMetadata.castlingRights.wK = false; newMetadata.castlingRights.wQ = false; }
             if (movingPiece === 'k') { newMetadata.castlingRights.bK = false; newMetadata.castlingRights.bQ = false; }
             if (movingPiece === 'R' && from.r === 7 && from.c === 7) newMetadata.castlingRights.wK = false;
             if (movingPiece === 'R' && from.r === 7 && from.c === 0) newMetadata.castlingRights.wQ = false;
             if (movingPiece === 'r' && from.r === 0 && from.c === 7) newMetadata.castlingRights.bK = false;
             if (movingPiece === 'r' && from.r === 0 && from.c === 0) newMetadata.castlingRights.bQ = false;
-
             if (moveRes.castling) {
               const r = from.r;
               if (moveRes.castling === 'K') { chessBoard[r][5] = chessBoard[r][7]; chessBoard[r][7] = ''; }
               else if (moveRes.castling === 'Q') { chessBoard[r][3] = chessBoard[r][0]; chessBoard[r][0] = ''; }
             }
-            
             let nextTurn = game.turn === 'player1' ? 'player2' : 'player1';
             const nextPlayerNum = nextTurn === 'player1' ? 1 : 2;
             let status = 'playing';
             let winnerId = null;
-            
             if (!hasLegalMoves(chessBoard, nextPlayerNum, newMetadata)) {
               status = 'finished';
               if (isInCheck(chessBoard, nextPlayerNum)) {
                 winnerId = playerNum === 1 ? game.player1Id : game.player2Id;
-                const loserId = playerNum === 1 ? game.player2Id : game.player1Id;
                 if (winnerId !== 'cpu') await storage.updateLeaderboard(winnerId, 'chess', 'win');
+                const loserId = playerNum === 1 ? game.player2Id : game.player1Id;
                 if (loserId !== 'cpu') await storage.updateLeaderboard(loserId, 'chess', 'loss');
               } else {
                 winnerId = 'draw';
@@ -839,7 +772,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                 if (!game.isCpu) await storage.updateLeaderboard(game.player2Id, 'chess', 'draw');
               }
             }
-
             await storage.updateGame(gameId, chessBoard, nextTurn, status, winnerId);
             notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: chessBoard, turn: nextPlayerNum } }));
             if (status === 'finished') notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winnerId === 'draw' ? 'draw' : playerNum, board: chessBoard } }));
@@ -861,11 +793,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                 if (!hasLegalMoves(cBoard, 1, newMetadata)) {
                   cStatus = 'finished';
                   cWinnerId = isInCheck(cBoard, 1) ? 'cpu' : 'draw';
-                  if (cWinnerId === 'cpu') {
-                    await storage.updateLeaderboard(game.player1Id, 'chess', 'loss');
-                  } else {
-                    await storage.updateLeaderboard(game.player1Id, 'chess', 'draw');
-                  }
+                  if (cWinnerId === 'cpu') await storage.updateLeaderboard(game.player1Id, 'chess', 'loss');
+                  else await storage.updateLeaderboard(game.player1Id, 'chess', 'draw');
                 }
                 await storage.updateGame(gameId, cBoard, 'player1', cStatus, cWinnerId);
                 notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: cBoard, turn: 1 } }));
@@ -880,36 +809,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             let status = gameOver ? 'finished' : 'playing';
             let winnerId = null;
             if (gameOver) {
-              const p1Score = board[6];
-              const p2Score = board[13];
-              if (p1Score > p2Score) {
-                winnerId = game.player1Id;
-                await storage.updateLeaderboard(game.player1Id, 'mancala', 'win');
-                if (!game.isCpu) await storage.updateLeaderboard(game.player2Id, 'mancala', 'loss');
-              }
+              const p1Score = board[6]; const p2Score = board[13];
+              if (p1Score > p2Score) { winnerId = game.player1Id; await storage.updateLeaderboard(game.player1Id, 'mancala', 'win'); if (!game.isCpu) await storage.updateLeaderboard(game.player2Id, 'mancala', 'loss'); }
               else if (p2Score > p1Score) {
                 winnerId = game.player2Id;
-                if (game.player2Id !== 'cpu') {
-                  await storage.updateLeaderboard(game.player2Id, 'mancala', 'win');
-                  await storage.updateLeaderboard(game.player1Id, 'mancala', 'loss');
-                } else {
-                  await storage.updateLeaderboard(game.player1Id, 'mancala', 'loss');
-                }
-              }
-              else {
-                winnerId = 'draw';
-                await storage.updateLeaderboard(game.player1Id, 'mancala', 'draw');
-                if (!game.isCpu) await storage.updateLeaderboard(game.player2Id, 'mancala', 'draw');
-              }
+                if (game.player2Id !== 'cpu') { await storage.updateLeaderboard(game.player2Id, 'mancala', 'win'); await storage.updateLeaderboard(game.player1Id, 'mancala', 'loss'); }
+                else await storage.updateLeaderboard(game.player1Id, 'mancala', 'loss');
+              } else { winnerId = 'draw'; await storage.updateLeaderboard(game.player1Id, 'mancala', 'draw'); if (!game.isCpu) await storage.updateLeaderboard(game.player2Id, 'mancala', 'draw'); }
             }
             const turnStr = nextTurn === 1 ? 'player1' : 'player2';
             await storage.updateGame(gameId, board, turnStr, status, winnerId);
             notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board, turn: nextTurn } }));
-            if (status === 'finished') {
-              const winner = winnerId === 'draw' ? 'draw' : (winnerId === game.player1Id ? 1 : 2);
-              notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner, board } }));
-            } else if (game.isCpu && nextTurn === 2) {
-              // Recursive CPU move function to handle extra turns
+            if (status === 'finished') notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winnerId === 'draw' ? 'draw' : (winnerId === game.player1Id ? 1 : 2), board } }));
+            else if (game.isCpu && nextTurn === 2) {
               const executeCpuMove = async (currentBoard: number[]) => {
                 setTimeout(async () => {
                   const cpuMove = getMancalaCpuMove(currentBoard);
@@ -917,32 +829,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                   let cStatus = cGameOver ? 'finished' : 'playing';
                   let cWinnerId = null;
                   if (cGameOver) {
-                    const p1Score = cBoard[6];
-                    const p2Score = cBoard[13];
-                    if (p1Score > p2Score) {
-                      cWinnerId = game.player1Id;
-                      await storage.updateLeaderboard(game.player1Id, 'mancala', 'win');
-                    }
-                    else if (p2Score > p1Score) {
-                      cWinnerId = 'cpu';
-                      await storage.updateLeaderboard(game.player1Id, 'mancala', 'loss');
-                    }
-                    else {
-                      cWinnerId = 'draw';
-                      await storage.updateLeaderboard(game.player1Id, 'mancala', 'draw');
-                    }
+                    const cp1Score = cBoard[6]; const cp2Score = cBoard[13];
+                    if (cp1Score > cp2Score) { cWinnerId = game.player1Id; await storage.updateLeaderboard(game.player1Id, 'mancala', 'win'); }
+                    else if (cp2Score > cp1Score) { cWinnerId = 'cpu'; await storage.updateLeaderboard(game.player1Id, 'mancala', 'loss'); }
+                    else { cWinnerId = 'draw'; await storage.updateLeaderboard(game.player1Id, 'mancala', 'draw'); }
                   }
                   const cTurnStr = cNextTurn === 1 ? 'player1' : 'player2';
                   await storage.updateGame(gameId, cBoard, cTurnStr, cStatus, cWinnerId);
                   notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: cBoard, turn: cNextTurn } }));
-                  if (cStatus === 'finished') {
-                    const winner = cWinnerId === 'draw' ? 'draw' : (cWinnerId === game.player1Id ? 1 : 2);
-                    notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner, board: cBoard } }));
-                  } else if (cNextTurn === 2) {
-                    // Extra turn for CPU
-                    executeCpuMove(cBoard);
-                  }
-                }, 1000);
+                  if (cStatus === 'finished') notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: cWinnerId === 'draw' ? 'draw' : (cWinnerId === game.player1Id ? 1 : 2), board: cBoard } }));
+                  else if (cNextTurn === 2) executeCpuMove(cBoard);
+                }, 500);
               };
               executeCpuMove(board);
             }
@@ -954,15 +851,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
 
     ws.on('close', () => {
-      clients.delete(userId);
       storage.removeFromQueue(userId);
+      clients.delete(userId);
     });
-  });
-
-  app.get("/api/leaderboard/:gameType", async (req, res) => {
-    const { gameType } = req.params;
-    const leaderboard = await storage.getLeaderboard(gameType);
-    res.json(leaderboard);
   });
 
   return httpServer;
