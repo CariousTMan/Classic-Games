@@ -79,6 +79,16 @@ export function useGameSocket() {
             );
           } else if (message.payload.gameType === 'mancala') {
             initialBoard = [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0];
+          } else if (message.payload.gameType === 'poker') {
+            initialBoard = {
+              playerHand: [],
+              communityCards: [],
+              playerChips: 1000,
+              cpuChips: 1000,
+              pot: 0,
+              phase: 'preflop',
+              turn: 1
+            };
           } else {
             initialBoard = Array(6).fill(0).map(() => Array(7).fill(0));
           }

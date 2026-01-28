@@ -25,16 +25,16 @@ export default function Poker({ gameId, socket, onGameOver, initialBoard }: any)
     }));
   };
 
-  if (!gameState) return <div className="flex items-center justify-center h-64 font-display text-xl animate-pulse">Shuffling deck...</div>;
+  if (!gameState || !gameState.playerHand || !gameState.communityCards) return <div className="flex items-center justify-center h-64 font-display text-xl animate-pulse text-primary">Shuffling deck...</div>;
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8 p-6 arcade-card bg-green-900/20 border-green-500/30">
       <div className="text-center space-y-2">
         <div className="text-sm font-bold text-green-500 uppercase tracking-[0.2em] flex items-center justify-center gap-2">
           <span>Pot</span>
-          <span className="px-2 py-0.5 rounded bg-green-500/10 text-[10px] border border-green-500/20">{gameState.phase.toUpperCase()}</span>
+          <span className="px-2 py-0.5 rounded bg-green-500/10 text-[10px] border border-green-500/20">{gameState.phase?.toUpperCase() || 'PREFLOP'}</span>
         </div>
-        <div className="text-4xl font-display font-bold text-white">${gameState.pot}</div>
+        <div className="text-4xl font-display font-bold text-white">${gameState.pot || 0}</div>
       </div>
 
       <div className="flex justify-center gap-4 py-8">
