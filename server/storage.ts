@@ -79,15 +79,30 @@ export class MemStorage implements IStorage {
     } else if (gameType === 'mancala') {
       return [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0];
     } else if (gameType === 'poker') {
+      const suits = ['♠', '♣', '♥', '♦'];
+      const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+      const deck = [];
+      for (const suit of suits) {
+        for (const rank of ranks) {
+          let value = parseInt(rank);
+          if (['J', 'Q', 'K'].includes(rank)) value = 10;
+          if (rank === 'A') value = 11;
+          deck.push({ suit, rank, value });
+        }
+      }
+      deck.sort(() => Math.random() - 0.5);
+
       return {
-        playerHand: [],
-        communityCards: [],
+        playerHand: [deck.pop(), deck.pop()],
+        cpuHand: [deck.pop(), deck.pop()],
+        communityCards: [deck.pop(), deck.pop(), deck.pop()],
         playerChips: 1000,
         cpuChips: 1000,
         pot: 0,
         currentBet: 0,
-        phase: 'preflop',
-        turn: 1
+        phase: 'flop',
+        turn: 1,
+        deck: deck
       };
     }
     return Array(6).fill(null).map(() => Array(7).fill(0));

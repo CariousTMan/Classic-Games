@@ -412,6 +412,43 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             payload: { gameId: game.id, gameType: message.payload.gameType, opponentId: 'cpu', yourColor: 1, board: bjBoard }
           }));
         }
+        else if (message.type === 'POKER_ACTION') {
+          const { action, amount, gameId } = message.payload;
+          const game = await storage.getGame(gameId);
+          if (!game || game.status !== 'playing' || game.gameType !== 'poker') return;
+
+          const board = game.board as any;
+          if (board.turn !== (game.player1Id === userId ? 1 : 2)) return;
+
+          // Simple Poker Logic: Just update turn and pot for now
+          // In a real implementation, we'd handle the phase transitions and card dealing
+          const newBoard = { ...board };
+          if (action === 'bet' && amount) {
+            newBoard.pot += amount;
+            newBoard.playerChips -= amount;
+          }
+          newBoard.turn = board.turn === 1 ? 2 : 1;
+
+          await storage.updateGame(gameId, newBoard, game.turn, game.status, game.winnerId);
+          
+          const notify = (msg: string) => {
+            const p1 = clients.get(game.player1Id);
+            const p2 = clients.get(game.player2Id);
+            if (p1?.readyState === WebSocket.OPEN) p1.send(msg);
+            if (p2?.readyState === WebSocket.OPEN) p2.send(msg);
+          };
+          notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: newBoard.turn } }));
+
+          if (game.isCpu && newBoard.turn === 2) {
+            setTimeout(async () => {
+              newBoard.turn = 1;
+              newBoard.pot += 50;
+              newBoard.cpuChips -= 50;
+              await storage.updateGame(gameId, newBoard, 'player1', game.status, game.winnerId);
+              notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: 1 } }));
+            }, 1000);
+          }
+        }
         else if (message.type === WS_MESSAGES.MAKE_MOVE) {
           const { gameId, move } = message.payload;
           const game = await storage.getGame(gameId);
