@@ -39,6 +39,17 @@ export type InsertGame = z.infer<typeof insertGameSchema>;
 
 // === WebSocket Protocol ===
 
+export type PokerGameState = {
+  playerHand: { suit: string, rank: string, value: number }[];
+  communityCards: { suit: string, rank: string, value: number }[];
+  playerChips: number;
+  cpuChips: number;
+  pot: number;
+  currentBet: number;
+  phase: 'preflop' | 'flop' | 'turn' | 'river' | 'showdown';
+  turn: 1 | 2; // 1: Player, 2: CPU/Opponent
+};
+
 export const WS_MESSAGES = {
   JOIN_QUEUE: 'JOIN_QUEUE',
   LEAVE_QUEUE: 'LEAVE_QUEUE',
@@ -56,6 +67,7 @@ export type WsMessage =
   | { type: 'LEAVE_QUEUE' }
   | { type: 'START_CPU_GAME', payload: { gameType: string, difficulty: 'easy' | 'medium' | 'hard' } }
   | { type: 'MATCH_FOUND', payload: { gameId: number, gameType: string, yourColor: 1 | 2, opponentId: string, board?: any } }
+  | { type: 'POKER_ACTION', payload: { action: 'fold' | 'check' | 'call' | 'bet', amount?: number, gameId: number } }
   | { type: 'MAKE_MOVE', payload: { move: any, gameId: number } }
   | { type: 'GAME_UPDATE', payload: { board: any, turn: 1 | 2 } }
   | { type: 'GAME_OVER', payload: { winner: 1 | 2 | 'draw', board: any } }

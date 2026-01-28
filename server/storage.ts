@@ -78,6 +78,17 @@ export class MemStorage implements IStorage {
       );
     } else if (gameType === 'mancala') {
       return [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0];
+    } else if (gameType === 'poker') {
+      return {
+        playerHand: [],
+        communityCards: [],
+        playerChips: 1000,
+        cpuChips: 1000,
+        pot: 0,
+        currentBet: 0,
+        phase: 'preflop',
+        turn: 1
+      };
     }
     return Array(6).fill(null).map(() => Array(7).fill(0));
   }
