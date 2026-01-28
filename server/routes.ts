@@ -186,10 +186,37 @@ type PokerCard = { suit: string, rank: string, value: number };
 
 function evaluatePokerHand(hand: PokerCard[], community: PokerCard[]): number {
   const allCards = [...hand, ...community];
-  // Simplest evaluation: sum of values
-  // In a real Texas Hold'em game, we'd use hand rankings (Flush, Straight, etc.)
-  // For now, we'll sum the values to determine a winner
-  return allCards.reduce((sum, c) => sum + c.value, 0);
+  const rankValues = allCards.map(c => c.value).sort((a, b) => b - a);
+  const suits = allCards.map(c => c.suit);
+  
+  // Check Flush
+  const suitCounts: any = {};
+  suits.forEach(s => suitCounts[s] = (suitCounts[s] || 0) + 1);
+  const isFlush = Object.values(suitCounts).some((count: any) => count >= 5);
+  
+  // Check Straight (simplified)
+  const uniqueRanks = Array.from(new Set(rankValues)).sort((a, b) => b - a);
+  let isStraight = false;
+  for (let i = 0; i <= uniqueRanks.length - 5; i++) {
+    if (uniqueRanks[i] - uniqueRanks[i+4] === 4) isStraight = true;
+  }
+
+  // Value Multipliers
+  if (isFlush && isStraight) return 1000 + rankValues[0];
+  if (isFlush) return 500 + rankValues[0];
+  if (isStraight) return 400 + rankValues[0];
+  
+  // Pairs / Three / Four of a kind
+  const counts: any = {};
+  rankValues.forEach(v => counts[v] = (counts[v] || 0) + 1);
+  const values = Object.values(counts) as number[];
+  if (values.includes(4)) return 800 + rankValues[0];
+  if (values.includes(3) && values.includes(2)) return 700 + rankValues[0];
+  if (values.includes(3)) return 300 + rankValues[0];
+  if (values.filter(v => v === 2).length >= 2) return 200 + rankValues[0];
+  if (values.includes(2)) return 100 + rankValues[0];
+
+  return rankValues[0];
 }
 
 function getPokerCpuAction(board: any): { action: 'fold' | 'check' | 'call' | 'bet', amount?: number } {
@@ -456,29 +483,38 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             winnerNum = board.turn === 1 ? 2 : 1;
           } else {
             if (action === 'bet' && amount) {
+              newBoard.currentBet = (newBoard.currentBet || 0) + amount;
               newBoard.pot += amount;
               newBoard.playerChips -= amount;
             } else if (action === 'call') {
-              const callAmount = 50; // Simple fixed call amount for now
+              const callAmount = newBoard.currentBet || 50;
               newBoard.pot += callAmount;
               newBoard.playerChips -= callAmount;
+              newBoard.currentBet = 0; // Reset bet after call
+            } else if (action === 'check') {
+              if (newBoard.currentBet > 0) return ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Cannot check when there is a bet" } }));
             }
 
             // Phase transition logic
-            if (newBoard.phase === 'flop') {
-              newBoard.phase = 'turn';
-              newBoard.communityCards.push(newBoard.deck.pop());
-            } else if (newBoard.phase === 'turn') {
-              newBoard.phase = 'river';
-              newBoard.communityCards.push(newBoard.deck.pop());
-            } else if (newBoard.phase === 'river') {
-              newBoard.phase = 'showdown';
-              gameOver = true;
-              const pScore = evaluatePokerHand(newBoard.playerHand, newBoard.communityCards);
-              const cScore = evaluatePokerHand(newBoard.cpuHand, newBoard.communityCards);
-              if (pScore > cScore) winnerNum = 1;
-              else if (cScore > pScore) winnerNum = 2;
-              else winnerNum = 'draw';
+            const shouldTransition = action === 'call' || (action === 'check' && newBoard.turn === 2);
+            if (shouldTransition) {
+              if (newBoard.phase === 'flop') {
+                newBoard.phase = 'turn';
+                newBoard.communityCards.push(newBoard.deck.pop());
+                newBoard.currentBet = 0;
+              } else if (newBoard.phase === 'turn') {
+                newBoard.phase = 'river';
+                newBoard.communityCards.push(newBoard.deck.pop());
+                newBoard.currentBet = 0;
+              } else if (newBoard.phase === 'river') {
+                newBoard.phase = 'showdown';
+                gameOver = true;
+                const pScore = evaluatePokerHand(newBoard.playerHand, newBoard.communityCards);
+                const cScore = evaluatePokerHand(newBoard.cpuHand, newBoard.communityCards);
+                if (pScore > cScore) winnerNum = 1;
+                else if (cScore > pScore) winnerNum = 2;
+                else winnerNum = 'draw';
+              }
             }
           }
 

@@ -86,10 +86,37 @@ export default function Poker({ gameId, socket, onGameOver, initialBoard }: any)
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Button onClick={() => pokerAction('check')} className="arcade-btn h-12" disabled={gameState.turn !== 1}>Check</Button>
-            <Button onClick={() => pokerAction('call')} variant="outline" className="h-12 border-2" disabled={gameState.turn !== 1}>Call</Button>
-            <Button onClick={() => pokerAction('bet', 50)} variant="secondary" className="h-12" disabled={gameState.turn !== 1}>Bet $50</Button>
-            <Button onClick={() => pokerAction('fold')} variant="destructive" className="h-12" disabled={gameState.turn !== 1}>Fold</Button>
+            <Button 
+              onClick={() => pokerAction('check')} 
+              className="arcade-btn h-12" 
+              disabled={gameState.turn !== 1 || (gameState.currentBet > 0)}
+            >
+              Check
+            </Button>
+            <Button 
+              onClick={() => pokerAction('call')} 
+              variant="outline" 
+              className="h-12 border-2" 
+              disabled={gameState.turn !== 1 || !(gameState.currentBet > 0)}
+            >
+              Call (${gameState.currentBet || 0})
+            </Button>
+            <Button 
+              onClick={() => pokerAction('bet', 50)} 
+              variant="secondary" 
+              className="h-12" 
+              disabled={gameState.turn !== 1}
+            >
+              Bet $50
+            </Button>
+            <Button 
+              onClick={() => pokerAction('fold')} 
+              variant="destructive" 
+              className="h-12" 
+              disabled={gameState.turn !== 1}
+            >
+              Fold
+            </Button>
           </div>
         </div>
       </div>
