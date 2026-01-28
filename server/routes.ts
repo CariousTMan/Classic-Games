@@ -562,16 +562,49 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                   notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: 1, board: finalBoard } }));
                   await storage.updateLeaderboard(game.player1Id, 'poker', 'win');
                 } else {
+                  // CPU ACTION HANDLING
+                  const cpuActionMessage = { type: 'POKER_ACTION', payload: { action: cpuMove.action, amount: cpuMove.amount, gameId } };
+                  // We recurse into the logic by simulating a message
+                  // But let's just apply it directly for simplicity
+                  const finalCpuBoard = { ...newBoard };
                   if (cpuMove.action === 'bet') {
-                    newBoard.pot += cpuMove.amount || 50;
-                    newBoard.cpuChips -= cpuMove.amount || 50;
+                    finalCpuBoard.currentBet = (finalCpuBoard.currentBet || 0) + (cpuMove.amount || 50);
+                    finalCpuBoard.pot += (cpuMove.amount || 50);
+                    finalCpuBoard.cpuChips -= (cpuMove.amount || 50);
                   } else if (cpuMove.action === 'call') {
-                    newBoard.pot += 50;
-                    newBoard.cpuChips -= 50;
+                    const callAmt = finalCpuBoard.currentBet || 0;
+                    finalCpuBoard.pot += callAmt;
+                    finalCpuBoard.cpuChips -= callAmt;
+                    finalCpuBoard.currentBet = 0;
                   }
-                  newBoard.turn = 1;
-                  await storage.updateGame(gameId, newBoard, 'player1', game.status, game.winnerId);
-                  notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: 1 } }));
+                  
+                  // Re-check transition for CPU action
+                  let cpuTransition = false;
+                  if (cpuMove.action === 'call') cpuTransition = true;
+                  else if (cpuMove.action === 'check') cpuTransition = true;
+
+                  if (cpuTransition) {
+                    if (finalCpuBoard.phase === 'flop') {
+                      finalCpuBoard.phase = 'turn';
+                      finalCpuBoard.communityCards.push(finalCpuBoard.deck.pop());
+                      finalCpuBoard.currentBet = 0;
+                    } else if (finalCpuBoard.phase === 'turn') {
+                      finalCpuBoard.phase = 'river';
+                      finalCpuBoard.communityCards.push(finalCpuBoard.deck.pop());
+                      finalCpuBoard.currentBet = 0;
+                    } else if (finalCpuBoard.phase === 'river') {
+                      finalCpuBoard.phase = 'showdown';
+                      const finalWinner = evaluatePokerHand(finalCpuBoard.playerHand, finalCpuBoard.communityCards) > evaluatePokerHand(finalCpuBoard.cpuHand, finalCpuBoard.communityCards) ? 1 : 2;
+                      await storage.updateGame(gameId, finalCpuBoard, 'player1', 'finished', finalWinner === 1 ? game.player1Id : 'cpu');
+                      notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: finalCpuBoard, turn: 1 } }));
+                      notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: finalWinner, board: finalCpuBoard } }));
+                      return;
+                    }
+                  }
+
+                  finalCpuBoard.turn = 1;
+                  await storage.updateGame(gameId, finalCpuBoard, 'player1', game.status, game.winnerId);
+                  notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: finalCpuBoard, turn: 1 } }));
                 }
               }, 1000);
             }
