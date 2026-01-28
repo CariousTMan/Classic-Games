@@ -89,7 +89,7 @@ export default function Poker({ gameId, socket, onGameOver, initialBoard }: any)
             <Button 
               onClick={() => pokerAction('check')} 
               className="arcade-btn h-12" 
-              disabled={gameState.turn !== 1 || (gameState.currentBet > 0)}
+              disabled={gameState.turn !== 1 || Number(gameState.currentBet) > 0}
             >
               Check
             </Button>

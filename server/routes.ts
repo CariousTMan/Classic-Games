@@ -495,7 +495,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               else newBoard.cpuChips -= callAmount;
               newBoard.currentBet = 0; // Reset bet after call
             } else if (action === 'check') {
-              if (newBoard.currentBet > 0) return ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Cannot check when there is a bet" } }));
+              if (Number(newBoard.currentBet) > 0) {
+                return ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Cannot check when there is a bet" } }));
+              }
             }
 
             // Phase transition logic
