@@ -483,13 +483,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             winnerNum = board.turn === 1 ? 2 : 1;
           } else {
             if (action === 'bet' && amount) {
-              newBoard.currentBet = (newBoard.currentBet || 0) + amount;
-              newBoard.pot += amount;
-              newBoard.playerChips -= amount;
+              const diff = amount;
+              newBoard.currentBet = (newBoard.currentBet || 0) + diff;
+              newBoard.pot += diff;
+              if (board.turn === 1) newBoard.playerChips -= diff;
+              else newBoard.cpuChips -= diff;
             } else if (action === 'call') {
-              const callAmount = newBoard.currentBet || 50;
+              const callAmount = newBoard.currentBet || 0;
               newBoard.pot += callAmount;
-              newBoard.playerChips -= callAmount;
+              if (board.turn === 1) newBoard.playerChips -= callAmount;
+              else newBoard.cpuChips -= callAmount;
               newBoard.currentBet = 0; // Reset bet after call
             } else if (action === 'check') {
               if (newBoard.currentBet > 0) return ws.send(JSON.stringify({ type: WS_MESSAGES.ERROR, payload: { message: "Cannot check when there is a bet" } }));

@@ -107,7 +107,7 @@ export default function Poker({ gameId, socket, onGameOver, initialBoard }: any)
               className="h-12" 
               disabled={gameState.turn !== 1}
             >
-              Bet $50
+              {gameState.currentBet > 0 ? `Raise $50` : `Bet $50`}
             </Button>
             <Button 
               onClick={() => pokerAction('fold')} 
