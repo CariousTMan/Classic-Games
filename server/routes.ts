@@ -181,7 +181,27 @@ function getMancalaCpuMove(board: number[]): number {
   return validPits[Math.floor(Math.random() * validPits.length)];
 }
 
-// Blackjack Logic Helpers
+// Poker Logic Helpers
+type PokerCard = { suit: string, rank: string, value: number };
+
+function evaluatePokerHand(hand: PokerCard[], community: PokerCard[]): number {
+  const allCards = [...hand, ...community];
+  // Simplest evaluation: sum of values
+  // In a real Texas Hold'em game, we'd use hand rankings (Flush, Straight, etc.)
+  // For now, we'll sum the values to determine a winner
+  return allCards.reduce((sum, c) => sum + c.value, 0);
+}
+
+function getPokerCpuAction(board: any): { action: 'fold' | 'check' | 'call' | 'bet', amount?: number } {
+  const cpuScore = evaluatePokerHand(board.cpuHand, board.communityCards);
+  const playerScore = evaluatePokerHand(board.playerHand, board.communityCards);
+  
+  // Basic AI logic
+  if (cpuScore > playerScore + 5) return { action: 'bet', amount: 50 };
+  if (cpuScore > playerScore - 5) return { action: 'call' };
+  if (Math.random() > 0.8) return { action: 'bet', amount: 25 };
+  return { action: 'check' };
+}
 type BlackjackCard = { suit: string, rank: string, value: number };
 function createDeck(): BlackjackCard[] {
   const suits = ['♠', '♣', '♥', '♦'];
@@ -420,33 +440,90 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           const board = game.board as any;
           if (board.turn !== (game.player1Id === userId ? 1 : 2)) return;
 
-          // Simple Poker Logic: Just update turn and pot for now
-          // In a real implementation, we'd handle the phase transitions and card dealing
           const newBoard = { ...board };
-          if (action === 'bet' && amount) {
-            newBoard.pot += amount;
-            newBoard.playerChips -= amount;
-          }
-          newBoard.turn = board.turn === 1 ? 2 : 1;
+          let gameOver = false;
+          let winnerNum: 1 | 2 | 'draw' | null = null;
 
-          await storage.updateGame(gameId, newBoard, game.turn, game.status, game.winnerId);
-          
           const notify = (msg: string) => {
             const p1 = clients.get(game.player1Id);
             const p2 = clients.get(game.player2Id);
             if (p1?.readyState === WebSocket.OPEN) p1.send(msg);
             if (p2?.readyState === WebSocket.OPEN) p2.send(msg);
           };
-          notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: newBoard.turn } }));
 
-          if (game.isCpu && newBoard.turn === 2) {
-            setTimeout(async () => {
-              newBoard.turn = 1;
-              newBoard.pot += 50;
-              newBoard.cpuChips -= 50;
-              await storage.updateGame(gameId, newBoard, 'player1', game.status, game.winnerId);
-              notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: 1 } }));
-            }, 1000);
+          if (action === 'fold') {
+            gameOver = true;
+            winnerNum = board.turn === 1 ? 2 : 1;
+          } else {
+            if (action === 'bet' && amount) {
+              newBoard.pot += amount;
+              newBoard.playerChips -= amount;
+            } else if (action === 'call') {
+              const callAmount = 50; // Simple fixed call amount for now
+              newBoard.pot += callAmount;
+              newBoard.playerChips -= callAmount;
+            }
+
+            // Phase transition logic
+            if (newBoard.phase === 'flop') {
+              newBoard.phase = 'turn';
+              newBoard.communityCards.push(newBoard.deck.pop());
+            } else if (newBoard.phase === 'turn') {
+              newBoard.phase = 'river';
+              newBoard.communityCards.push(newBoard.deck.pop());
+            } else if (newBoard.phase === 'river') {
+              newBoard.phase = 'showdown';
+              gameOver = true;
+              const pScore = evaluatePokerHand(newBoard.playerHand, newBoard.communityCards);
+              const cScore = evaluatePokerHand(newBoard.cpuHand, newBoard.communityCards);
+              if (pScore > cScore) winnerNum = 1;
+              else if (cScore > pScore) winnerNum = 2;
+              else winnerNum = 'draw';
+            }
+          }
+
+          if (gameOver) {
+            const status = 'finished';
+            const winnerId = winnerNum === 'draw' ? 'draw' : (winnerNum === 1 ? game.player1Id : 'cpu');
+            await storage.updateGame(gameId, newBoard, 'player1', status, winnerId);
+            notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: 1 } }));
+            notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winnerNum, board: newBoard } }));
+            
+            // Update leaderboard
+            if (winnerNum !== 'draw') {
+              if (winnerNum === 1) await storage.updateLeaderboard(game.player1Id, 'poker', 'win');
+              else await storage.updateLeaderboard(game.player1Id, 'poker', 'loss');
+            } else {
+              await storage.updateLeaderboard(game.player1Id, 'poker', 'draw');
+            }
+          } else {
+            newBoard.turn = board.turn === 1 ? 2 : 1;
+            await storage.updateGame(gameId, newBoard, game.turn, game.status, game.winnerId);
+            notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: newBoard.turn } }));
+
+            if (game.isCpu && newBoard.turn === 2) {
+              setTimeout(async () => {
+                const cpuMove = getPokerCpuAction(newBoard);
+                if (cpuMove.action === 'fold') {
+                  const finalBoard = { ...newBoard, status: 'finished' };
+                  await storage.updateGame(gameId, finalBoard, 'player1', 'finished', game.player1Id);
+                  notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: finalBoard, turn: 1 } }));
+                  notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: 1, board: finalBoard } }));
+                  await storage.updateLeaderboard(game.player1Id, 'poker', 'win');
+                } else {
+                  if (cpuMove.action === 'bet') {
+                    newBoard.pot += cpuMove.amount || 50;
+                    newBoard.cpuChips -= cpuMove.amount || 50;
+                  } else if (cpuMove.action === 'call') {
+                    newBoard.pot += 50;
+                    newBoard.cpuChips -= 50;
+                  }
+                  newBoard.turn = 1;
+                  await storage.updateGame(gameId, newBoard, 'player1', game.status, game.winnerId);
+                  notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: 1 } }));
+                }
+              }, 1000);
+            }
           }
         }
         else if (message.type === WS_MESSAGES.MAKE_MOVE) {
