@@ -1,4 +1,3 @@
-import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import type { Express } from "express";
 import { type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
@@ -394,9 +393,6 @@ function hasLegalMoves(board: string[][], playerNum: number, metadata: any): boo
 }
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
-  await setupAuth(app);
-  registerAuthRoutes(app);
-
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   const clients = new Map<string, WebSocket>();
 

@@ -1,14 +1,12 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { Gamepad2, Users, ArrowLeft, Grid3X3, CircleDot, Trophy, LogOut } from "lucide-react";
+import { Gamepad2, Users, ArrowLeft, Grid3X3, CircleDot, Trophy } from "lucide-react";
 import { useState } from "react";
 import { Leaderboard } from "@/components/Leaderboard";
-import { useAuth } from "@/hooks/use-auth";
 
 export default function Home() {
   const [, setLocation] = useLocation();
-  const { user, logout } = useAuth();
   const [menuState, setMenuState] = useState<'main' | 'game-select' | 'cpu-difficulty' | 'leaderboard'>('main');
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
 
@@ -27,12 +25,6 @@ export default function Home() {
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary rounded flex items-center justify-center text-white font-bold text-sm shadow-md">GH</div>
           <span className="font-display font-bold text-lg hidden sm:inline-block">GameHub</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-muted-foreground hidden sm:inline-block">Welcome, {user?.firstName}</span>
-          <Button variant="ghost" size="sm" onClick={() => logout()} className="text-muted-foreground hover:text-foreground">
-            <LogOut className="mr-2 w-4 h-4" /> Logout
-          </Button>
         </div>
       </header>
 
