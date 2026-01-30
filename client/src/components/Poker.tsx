@@ -50,7 +50,7 @@ export default function Poker({ gameId, socket, onGameOver, initialBoard }: any)
             <div className="w-full text-right font-bold rotate-180">{card.rank}</div>
           </motion.div>
         ))}
-        {Array(5 - gameState.communityCards.length).fill(null).map((_, i) => (
+        {Array.from({ length: Math.max(0, 5 - (gameState.communityCards?.length || 0)) }).map((_, i) => (
           <div key={`empty-${i}`} className="w-20 h-28 border-2 border-dashed border-green-500/20 rounded-lg flex items-center justify-center text-green-500/10 text-4xl">?</div>
         ))}
       </div>
