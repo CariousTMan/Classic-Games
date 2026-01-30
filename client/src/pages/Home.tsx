@@ -9,6 +9,7 @@ export default function Home() {
   const [, setLocation] = useLocation();
   const [menuState, setMenuState] = useState<'main' | 'game-select' | 'cpu-difficulty' | 'leaderboard'>('main');
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
+  const nickname = localStorage.getItem("nickname") || "Guest";
 
   const startOnlineGame = (gameType: string) => {
     setLocation(`/game?mode=online&type=${gameType}`);
@@ -19,12 +20,23 @@ export default function Home() {
     setLocation(`/game?mode=cpu&type=${selectedGame}&difficulty=${difficulty}`);
   };
 
+  const logout = () => {
+    localStorage.removeItem("nickname");
+    window.location.reload();
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <header className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary rounded flex items-center justify-center text-white font-bold text-sm shadow-md">GH</div>
           <span className="font-display font-bold text-lg hidden sm:inline-block">GameHub</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-muted-foreground hidden sm:inline-block">Welcome, {nickname}</span>
+          <Button variant="ghost" size="sm" onClick={logout} className="text-muted-foreground hover:text-foreground">
+            Change Nickname
+          </Button>
         </div>
       </header>
 

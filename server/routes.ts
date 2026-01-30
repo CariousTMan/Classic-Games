@@ -403,6 +403,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     ws.on('message', async (data) => {
       try {
         const message = JSON.parse(data.toString()) as WsMessage;
+        const nickname = (message as any).payload?.nickname || 'Guest';
+
         if (message.type === WS_MESSAGES.JOIN_QUEUE) {
           const gameType = (message as any).payload?.gameType || 'connect4';
           storage.addToQueue(userId, gameType);
@@ -512,9 +514,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: 1 } }));
             notify(JSON.stringify({ type: WS_MESSAGES.GAME_OVER, payload: { winner: winnerNum, board: newBoard } }));
             if (winnerNum !== 'draw') {
-              if (winnerNum === 1) await storage.updateLeaderboard(game.player1Id, 'poker', 'win');
-              else await storage.updateLeaderboard(game.player1Id, 'poker', 'loss');
-            } else await storage.updateLeaderboard(game.player1Id, 'poker', 'draw');
+              if (winnerNum === 1) await storage.updateLeaderboard(nickname, 'poker', 'win');
+              else await storage.updateLeaderboard(nickname, 'poker', 'loss');
+            } else await storage.updateLeaderboard(nickname, 'poker', 'draw');
           } else {
             newBoard.turn = board.turn === 1 ? 2 : 1;
             await storage.updateGame(gameId, newBoard, game.turn, game.status, game.winnerId);

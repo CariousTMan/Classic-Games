@@ -136,14 +136,16 @@ export function useGameSocket() {
 
   const joinQueue = (gameType: string = 'connect4') => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'JOIN_QUEUE', payload: { gameType } }));
+      const nickname = localStorage.getItem("nickname") || "Guest";
+      wsRef.current.send(JSON.stringify({ type: 'JOIN_QUEUE', payload: { gameType, nickname } }));
       setGameState(prev => ({ ...prev, status: 'searching', gameType, winner: null }));
     }
   };
 
   const startCpuGame = (gameType: string, difficulty: 'easy' | 'medium' | 'hard') => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'START_CPU_GAME', payload: { gameType, difficulty } }));
+      const nickname = localStorage.getItem("nickname") || "Guest";
+      wsRef.current.send(JSON.stringify({ type: 'START_CPU_GAME', payload: { gameType, difficulty, nickname } }));
       setGameState(prev => ({ ...prev, status: 'searching', gameType, winner: null }));
     }
   };
