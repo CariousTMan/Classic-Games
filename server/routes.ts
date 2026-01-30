@@ -554,12 +554,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                   if (cpuTransition) {
                     if (finalCpuBoard.phase === 'flop') {
                       finalCpuBoard.phase = 'turn';
-                      finalCpuBoard.communityCards.push(finalCpuBoard.deck.pop());
+                      const card = finalCpuBoard.deck.pop();
+                      if (card) finalCpuBoard.communityCards.push(card);
                       finalCpuBoard.currentBet = 0;
+                      finalCpuBoard.turn = 1;
+                      await storage.updateGame(gameId, finalCpuBoard, 'player1', game.status, game.winnerId);
+                      return notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: finalCpuBoard, turn: 1 } }));
                     } else if (finalCpuBoard.phase === 'turn') {
                       finalCpuBoard.phase = 'river';
-                      finalCpuBoard.communityCards.push(finalCpuBoard.deck.pop());
+                      const card = finalCpuBoard.deck.pop();
+                      if (card) finalCpuBoard.communityCards.push(card);
                       finalCpuBoard.currentBet = 0;
+                      finalCpuBoard.turn = 1;
+                      await storage.updateGame(gameId, finalCpuBoard, 'player1', game.status, game.winnerId);
+                      return notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: finalCpuBoard, turn: 1 } }));
                     } else if (finalCpuBoard.phase === 'river') {
                       finalCpuBoard.phase = 'showdown';
                       const finalWinner = evaluatePokerHand(finalCpuBoard.playerHand, finalCpuBoard.communityCards) > evaluatePokerHand(finalCpuBoard.cpuHand, finalCpuBoard.communityCards) ? 1 : 2;
