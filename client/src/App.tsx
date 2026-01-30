@@ -18,8 +18,8 @@ function AppContent() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
         <div className="arcade-card p-8 max-w-md w-full text-center space-y-6">
-          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center text-white font-bold text-2xl mx-auto shadow-lg">GH</div>
-          <h1 className="text-4xl font-display font-bold tracking-tight">GameHub</h1>
+          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center text-white font-bold text-2xl mx-auto shadow-lg">CG</div>
+          <h1 className="text-4xl font-display font-bold tracking-tight">Classic Games</h1>
           <p className="text-muted-foreground">Enter a nickname to start playing.</p>
           
           <div className="space-y-4">

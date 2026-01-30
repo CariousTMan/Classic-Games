@@ -29,8 +29,8 @@ export default function Home() {
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <header className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary rounded flex items-center justify-center text-white font-bold text-sm shadow-md">GH</div>
-          <span className="font-display font-bold text-lg hidden sm:inline-block">GameHub</span>
+          <div className="w-8 h-8 bg-primary rounded flex items-center justify-center text-white font-bold text-sm shadow-md">CG</div>
+          <span className="font-display font-bold text-lg hidden sm:inline-block">Classic Games</span>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-sm text-muted-foreground hidden sm:inline-block">Welcome, {nickname}</span>
@@ -52,7 +52,7 @@ export default function Home() {
           className="text-center w-full max-w-4xl space-y-8"
         >
           <h1 className="text-6xl md:text-8xl font-display font-bold tracking-tight bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 bg-clip-text text-transparent">
-            GameHub
+            Classic Games
           </h1>
           
           <div className="flex flex-col items-center justify-center gap-4 pt-8 min-h-[400px]">
