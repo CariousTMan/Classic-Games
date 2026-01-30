@@ -18,6 +18,7 @@ const GAME_TYPES = [
   { id: 'chess', name: 'Chess' },
   { id: 'checkers', name: 'Checkers' },
   { id: 'mancala', name: 'Mancala' },
+  { id: 'poker', name: 'Poker' },
 ];
 
 export function Leaderboard() {
@@ -29,7 +30,7 @@ export function Leaderboard() {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="connect4">
-          <TabsList className="grid w-full grid-cols-4 mb-4">
+          <TabsList className="grid w-full grid-cols-5 mb-4">
             {GAME_TYPES.map((game) => (
               <TabsTrigger key={game.id} value={game.id} data-testid={`tab-leaderboard-${game.id}`}>
                 {game.name}
