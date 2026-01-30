@@ -490,13 +490,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             if (shouldTransition) {
               if (newBoard.phase === 'flop') {
                 newBoard.phase = 'turn';
-                newBoard.communityCards.push(newBoard.deck.pop());
+                const card = newBoard.deck.pop();
+                if (card) newBoard.communityCards.push(card);
                 newBoard.currentBet = 0;
                 newBoard.turn = 1; // Reset to player turn for new phase
                 return notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: 1 } }));
               } else if (newBoard.phase === 'turn') {
                 newBoard.phase = 'river';
-                newBoard.communityCards.push(newBoard.deck.pop());
+                const card = newBoard.deck.pop();
+                if (card) newBoard.communityCards.push(card);
                 newBoard.currentBet = 0;
                 newBoard.turn = 1; // Reset to player turn for new phase
                 return notify(JSON.stringify({ type: WS_MESSAGES.GAME_UPDATE, payload: { board: newBoard, turn: 1 } }));
