@@ -53,6 +53,7 @@ export default function Game() {
       case 'chess': return 'Chess';
       case 'mancala': return 'Mancala';
       case 'blackjack': return 'Blackjack';
+      case 'poker': return 'Poker';
       default: return 'Connect Four';
     }
   };
