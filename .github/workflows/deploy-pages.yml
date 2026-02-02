@@ -32,20 +32,42 @@ jobs:
         working-directory: client
         run: npm run build
 
+      - name: Diagnose build output (for debugging)
+        run: |
+          echo "== repo root =="
+          ls -la
+          echo "== client/ =="
+          ls -la client || true
+          echo "== dist/ (root) =="
+          ls -la dist || true
+          echo "== dist/public =="
+          ls -la dist/public || true
+
       - name: Prepare artifact for Pages
         run: |
-          cp client/dist/index.html client/dist/404.html || true
-          touch client/dist/.nojekyll
+          # The build produces static client files in dist/public
+          if [ -d dist/public ]; then
+            echo "Using dist/public as artifact"
+            cp dist/public/index.html dist/public/404.html || true
+            touch dist/public/.nojekyll
+          elif [ -d dist ]; then
+            echo "Using dist as artifact"
+            cp dist/index.html dist/404.html || true
+            touch dist/.nojekyll
+          else
+            echo "ERROR: No build output found (expected dist/public or dist). Listing workspace:"
+            ls -la
+            exit 1
+          fi
 
       - name: Upload artifact for GitHub Pages
-        # <-- UPDATED to v2 to avoid deprecated upload-artifact v3 dependency
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v2
         with:
-          path: client/dist
+          path: dist/public
 
   deploy:
     needs: build-and-deploy
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v1
+        uses: actions/deploy-pages@v4
