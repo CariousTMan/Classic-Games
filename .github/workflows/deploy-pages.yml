@@ -38,7 +38,8 @@ jobs:
           touch client/dist/.nojekyll
 
       - name: Upload artifact for GitHub Pages
-        uses: actions/upload-pages-artifact@v1
+        # <-- UPDATED to v2 to avoid deprecated upload-artifact v3 dependency
+        uses: actions/upload-pages-artifact@v2
         with:
           path: client/dist
 
